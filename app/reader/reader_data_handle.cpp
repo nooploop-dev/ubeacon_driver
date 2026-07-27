@@ -101,9 +101,9 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
                   int msg_payload_size) {
   (void)arg;
   const auto &header = s_header;
-  // READ_*等读请求无负载
+  // 空消息(只有id没有payload)。上行内建消息都带payload，这里只会是扩展消息
   if (msg_payload == nullptr || msg_payload_size == 0) {
-    spdlog::info("{},MSG_READ_REQUEST({}): {{}}", header, msg_id);
+    spdlog::info("{},MSG_EMPTY({}): {{}}", header, msg_id);
     return;
   }
   switch (msg_id) {

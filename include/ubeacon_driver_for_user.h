@@ -65,6 +65,16 @@ bool ub_prepare_msg_to_dev_try_append(ub_msg_id_t msg_id, const void *data,
 // 返回最终帧长度；失败返回 -1
 int ub_prepare_msg_to_dev_end(void *frame, int frame_size_max);
 
+// ---------------- 扩展消息（可选） ----------------
+// 主机侧只涉及两个方向中的各一半：发下行、收上行，因此只需注入这两个钩子。
+// 签名见 ubeacon_driver_common.h；传 NULL 可撤销注入。
+// 注入是进程内全局的，通常在初始化时设置一次
+
+// 下行组包时，内建消息表未命中则委托给它
+void ub_set_encode_user_to_dev_extend(ub_encode_extend_f encode);
+// 上行解析时，内建消息表未命中则委托给它
+void ub_set_decode_dev_to_user_extend(ub_decode_extend_f decode);
+
 #ifdef __cplusplus
 }
 #endif

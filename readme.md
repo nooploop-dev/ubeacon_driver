@@ -73,6 +73,11 @@ ubeacon_driver/
 - **解析**：用 `UBParserFromDev` + `ub_parser_from_dev_init()` 注册回调，串口每收到一段数据就喂给 `ub_parser_from_dev_handle_data()`，内部自动完成拆帧与解析。每帧开始时回调 `on_frame_begin`（提供设备 uid 与该帧的 `frame_id`），帧内每解析出一条消息回调一次 `on_frame_msg`（按 `msg_id` 取对应的 `UBData*` 结构体），处理完一帧后回调 `on_frame_end`；不需要的回调可传 `NULL`。三个回调都会把注册时传入的 `arg` 原样传回。
   - `on_frame_begin` 返回 `bool`：返回 `true` 才会继续解析该帧内的消息并在结束时回调 `on_frame_end`；返回 `false` 则整帧丢弃。**驱动自身不按 `frame_id` 过滤**，由用户在此回调中判断该帧是否来自自己所接的设备（`UB_FRAME_ID_TAG_UP` 等）。未注册该回调时任何帧都会被按上行帧解析——由于上下行 payload 头部长度不同，收发线路上可能出现下行帧时务必注册此回调。
 
+**消息是分方向的**：[include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) 中每个 `UB_MSG_*` 后都标了方向——`v` 表示下行（主机 → 设备），`^` 表示上行（设备 → 主机），`v^` 表示两个方向都有。`msg_id` 与结构体的一一对应**只在单个方向内成立**。驱动按方向校验：
+
+- 组包时传入的 `msg_id` 在该方向上不存在，返回 `-1`（如把只上行的 `UB_MSG_LOCATION_RESULT` 拿去 `ub_prepare_msg_to_dev`）
+- 解析时收到该方向上不存在的 `msg_id`，忽略该条消息，同帧内其余消息照常处理
+
 > 消息 ID（`UB_MSG_*`）与结构体（`UBData*`）的一一映射、各字段含义与单位，均见 [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) 的注释。
 >
 > 若你开发的是**设备端固件**（需要组包发给用户），接口见 [include/ubeacon_driver_for_dev.h](include/ubeacon_driver_for_dev.h)。
@@ -136,20 +141,52 @@ void app_send_find(void) {
 
 ### 扩展新消息
 
-在**不修改本驱动**的前提下新增自定义消息：定义宏 `UBEACON_DRIVER_DATA_EXTEND_ENABLED`，并实现两个钩子函数，编解码 switch 的 `default:` 分支会委托给它们，不支持的 `msg_id` 返回 `-1` 即可：
+在**不修改本驱动**的前提下新增自定义消息：实现自己的编解码函数，再通过函数指针注入。钩子只在内建消息表未命中时才被调用，**无法覆盖内建消息**；不注入即为不支持扩展消息（默认行为）。
+
+两个钩子签名定义在 [include/ubeacon_driver_common.h](include/ubeacon_driver_common.h)：
 
 ```c
-int ub_encode_extend(ub_msg_id_t msg_id, const void *data,
-                     void *raw, int raw_size_max);
-int ub_decode_extend(ub_msg_id_t msg_id, const void *payload, int payload_size,
-                     void *data_buf, int data_buf_size);
+// 把 data 转成线格式写入 raw，返回字节数；不支持的 msg_id 返回 -1
+typedef int (*ub_encode_extend_f)(ub_msg_id_t msg_id, const void *data,
+                                  void *raw, int raw_size_max);
+// 把 payload 转成 UBData* 写入 data_buf，返回字节数；不支持的 msg_id 返回 -1
+typedef int (*ub_decode_extend_f)(ub_msg_id_t msg_id, const void *payload,
+                                  int payload_size, void *data_buf,
+                                  int data_buf_size);
+```
+
+注入点按「你在哪一侧」分在两个头文件里，各自只需关心自己收发的那两个方向：
+
+```c
+// ubeacon_driver_for_user.h —— 主机侧：发下行、收上行
+void ub_set_encode_user_to_dev_extend(ub_encode_extend_f encode);
+void ub_set_decode_dev_to_user_extend(ub_decode_extend_f decode);
+
+// ubeacon_driver_for_dev.h —— 设备侧：发上行、收下行
+void ub_set_encode_dev_to_user_extend(ub_encode_extend_f encode);
+void ub_set_decode_user_to_dev_extend(ub_decode_extend_f decode);
+```
+
+之所以按方向分开，是因为 `msg_id` 与结构体的一一对应**只在单个方向内成立**。只在一个方向上用到的自定义消息，另一方向不注入即可。驱动内建消息同样按方向分成四张表（`ub_encode_dev_to_user` / `ub_encode_user_to_dev` / `ub_decode_dev_to_user` / `ub_decode_user_to_dev`）。
+
+注入是进程内全局的，通常在初始化时设置一次，传 `NULL` 可撤销：
+
+```c
+static int my_encode(ub_msg_id_t msg_id, const void *data,
+                     void *raw, int raw_size_max) {
+  if (msg_id != MY_MSG_ID || raw_size_max < 2) return -1;
+  /* ...写入 raw... */
+  return 2;
+}
+
+ub_set_encode_user_to_dev_extend(my_encode);
 ```
 
 **版本兼容**由 `ub_msg_copy_payload` 保证：收到的 payload 比结构短则补零、长则截断。新固件在尾部追加字段不会打挂旧驱动，反之亦然。
 
 ### 更多用法
 
-[test/test_ubeacon_driver.cpp](test/test_ubeacon_driver.cpp) 覆盖了**所有消息**在两个方向上的组包与解析往返用例，是最完整、最权威的接口用法参考，集成时可直接对照。
+[test/test_ubeacon_driver.cpp](test/test_ubeacon_driver.cpp) 覆盖了**所有消息**在其各自有效方向上的组包与解析往返用例（并校验消息用错方向时会被拒绝），是最完整、最权威的接口用法参考，集成时可直接对照。
 
 ## ROS 集成
 

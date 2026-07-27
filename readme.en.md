@@ -73,6 +73,11 @@ The API is defined in [include/ubeacon_driver_for_user.h](include/ubeacon_driver
 - **Parsing**: register callbacks with `UBParserFromDev` + `ub_parser_from_dev_init()`, then feed every chunk of serial data to `ub_parser_from_dev_handle_data()`; framing and parsing happen internally. `on_frame_begin` fires at the start of each frame (giving the device uid and the frame's `frame_id`), `on_frame_msg` fires once per message in the frame (cast to the `UBData*` struct selected by `msg_id`), and `on_frame_end` fires after the frame is done. Pass `NULL` for callbacks you do not need. All three receive the `arg` you registered, unchanged.
   - `on_frame_begin` returns `bool`: only `true` lets the driver go on to parse the messages in that frame and fire `on_frame_end`; `false` drops the whole frame. **The driver itself never filters on `frame_id`** — it is up to you to decide in this callback whether the frame came from the device you are attached to (`UB_FRAME_ID_TAG_UP` and friends). If the callback is not registered, every frame is parsed as an uplink frame; since the uplink and downlink payload headers differ in length, always register it when downlink frames may appear on the same line.
 
+**Messages are direction-scoped**: every `UB_MSG_*` in [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) is annotated with its direction — `v` for downlink (host → device), `^` for uplink (device → host), `v^` for both. The one-to-one mapping between a `msg_id` and a struct **only holds within a single direction**, and the driver enforces it:
+
+- Encoding a `msg_id` that does not exist in that direction returns `-1` (e.g. passing the uplink-only `UB_MSG_LOCATION_RESULT` to `ub_prepare_msg_to_dev`)
+- Parsing a `msg_id` that does not exist in that direction skips just that message; the rest of the frame is still processed
+
 > The one-to-one mapping between message IDs (`UB_MSG_*`) and structs (`UBData*`), plus the meaning and unit of every field, is documented in the comments of [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h).
 >
 > If you are writing **device firmware** (encoding messages to send to the user), see [include/ubeacon_driver_for_dev.h](include/ubeacon_driver_for_dev.h).
@@ -136,20 +141,52 @@ void app_send_find(void) {
 
 ### Adding New Messages
 
-To add custom messages **without modifying this driver**: define the macro `UBEACON_DRIVER_DATA_EXTEND_ENABLED` and implement two hook functions. The `default:` branch of the encode/decode switch delegates to them; return `-1` for message IDs you do not support:
+To add custom messages **without modifying this driver**: write your own encode/decode functions and inject them as function pointers. The hooks are consulted only when the built-in message table misses, so they **cannot override built-in messages**. Injecting nothing means no extension messages are supported (the default).
+
+Both hook signatures live in [include/ubeacon_driver_common.h](include/ubeacon_driver_common.h):
 
 ```c
-int ub_encode_extend(ub_msg_id_t msg_id, const void *data,
-                     void *raw, int raw_size_max);
-int ub_decode_extend(ub_msg_id_t msg_id, const void *payload, int payload_size,
-                     void *data_buf, int data_buf_size);
+// Convert data into wire format in raw, return the byte count; -1 if unsupported
+typedef int (*ub_encode_extend_f)(ub_msg_id_t msg_id, const void *data,
+                                  void *raw, int raw_size_max);
+// Convert payload into a UBData* in data_buf, return the byte count; -1 if unsupported
+typedef int (*ub_decode_extend_f)(ub_msg_id_t msg_id, const void *payload,
+                                  int payload_size, void *data_buf,
+                                  int data_buf_size);
+```
+
+The injection points are split across the two headers by which side you are on, so each side only deals with the two directions it actually uses:
+
+```c
+// ubeacon_driver_for_user.h -- host side: sends downlink, receives uplink
+void ub_set_encode_user_to_dev_extend(ub_encode_extend_f encode);
+void ub_set_decode_dev_to_user_extend(ub_decode_extend_f decode);
+
+// ubeacon_driver_for_dev.h -- device side: sends uplink, receives downlink
+void ub_set_encode_dev_to_user_extend(ub_encode_extend_f encode);
+void ub_set_decode_user_to_dev_extend(ub_decode_extend_f decode);
+```
+
+They are split per direction because the one-to-one mapping between a `msg_id` and a struct **only holds within a single direction**. For a custom message used in only one direction, simply do not inject the other. The driver's built-in messages are likewise split into four tables (`ub_encode_dev_to_user` / `ub_encode_user_to_dev` / `ub_decode_dev_to_user` / `ub_decode_user_to_dev`).
+
+Injection is process-global, normally done once at startup; pass `NULL` to undo it:
+
+```c
+static int my_encode(ub_msg_id_t msg_id, const void *data,
+                     void *raw, int raw_size_max) {
+  if (msg_id != MY_MSG_ID || raw_size_max < 2) return -1;
+  /* ...write into raw... */
+  return 2;
+}
+
+ub_set_encode_user_to_dev_extend(my_encode);
 ```
 
 **Version compatibility** is guaranteed by `ub_msg_copy_payload`: a received payload shorter than the struct is zero-padded, a longer one is truncated. New firmware appending fields at the tail will not break an old driver, and vice versa.
 
 ### More Usage
 
-[test/test_ubeacon_driver.cpp](test/test_ubeacon_driver.cpp) covers encode/parse round trips for **every message** in both directions. It is the most complete and authoritative API usage reference — keep it open while integrating.
+[test/test_ubeacon_driver.cpp](test/test_ubeacon_driver.cpp) covers encode/parse round trips for **every message** in each of its valid directions (and checks that a message used in the wrong direction is rejected). It is the most complete and authoritative API usage reference — keep it open while integrating.
 
 ## ROS Integration
 

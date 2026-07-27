@@ -65,17 +65,6 @@ static inline int ub_msg_write(void *buf, int buf_size_max, ub_msg_id_t id,
   return size;
 }
 
-// 版本兼容拷贝：源多则截断，源少则补零。
-// 这样新固件追加尾部字段不会打挂旧解析器，旧固件少发字段也不会读到脏数据。
-static inline void ub_msg_copy_payload(void *dst, int dst_size, const void *src,
-                                       int src_size) {
-  int n = src_size < dst_size ? src_size : dst_size;
-  memset(dst, 0, (size_t)dst_size);
-  if (n > 0) {
-    memcpy(dst, src, (size_t)n);
-  }
-}
-
 #ifdef __cplusplus
 }
 #endif

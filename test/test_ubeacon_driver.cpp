@@ -110,7 +110,7 @@ TEST_CASE("round trip: location_result") {
   d.anchors[2].addr = 0x1003;
   d.anchors[2].rx_rssi = -100.0f;
   d.anchors[2].rx_rate = 0.25f;
-  roundtrip(UB_MSG_LOCATION_RESULT, d);
+  roundtrip_to_user(UB_MSG_LOCATION_RESULT, d);
 }
 
 TEST_CASE("round trip: heartbeat") {
@@ -130,7 +130,7 @@ TEST_CASE("round trip: heartbeat") {
   d.firmware_version[3] = 4;
   std::memcpy(d.uid, kUid, UB_UID_SIZE);
   d.battery_voltage = 4.0f;
-  roundtrip(UB_MSG_HEARTBEAT, d);
+  roundtrip_to_user(UB_MSG_HEARTBEAT, d);
 }
 
 TEST_CASE("round trip: user_data") {
@@ -165,7 +165,7 @@ TEST_CASE("round trip: anchor_signal") {
   d.datas[1].uwb_clock_offset_ppm = -2.0f;
   d.datas[1].mcu_clock_offset_ppm = 3.0f;
   d.datas[1].rx_rate = 0.75f;
-  roundtrip(UB_MSG_ANCHOR_SIGNAL, d);
+  roundtrip_to_user(UB_MSG_ANCHOR_SIGNAL, d);
 }
 
 TEST_CASE("round trip: anchor_ddoas") {
@@ -178,7 +178,7 @@ TEST_CASE("round trip: anchor_ddoas") {
   d.datas[1].a0 = 0x3003;
   d.datas[1].a1 = 0x3004;
   d.datas[1].ddoa = -4.56f;
-  roundtrip(UB_MSG_ANCHOR_DDOAS, d);
+  roundtrip_to_user(UB_MSG_ANCHOR_DDOAS, d);
 }
 
 TEST_CASE("round trip: z_measurement") {
@@ -209,7 +209,7 @@ TEST_CASE("round trip: global_time_status") {
   d.ttl = 3;
   d.time_us = 1234567890123ULL; // 56 位以内
   d.src = 0x0001;
-  roundtrip(UB_MSG_GLOBAL_TIME_STATUS, d);
+  roundtrip_to_user(UB_MSG_GLOBAL_TIME_STATUS, d);
 }
 
 TEST_CASE("round trip: anchor_pos") {
@@ -222,7 +222,7 @@ TEST_CASE("round trip: anchor_pos") {
   d.is_local_pos = true;
   d.map_id = 1;
   d.relative_map_z = -0.5f;
-  roundtrip(UB_MSG_ANCHOR_POS, d);
+  roundtrip_to_user(UB_MSG_ANCHOR_POS, d);
 }
 
 // ============================================================
@@ -406,8 +406,9 @@ TEST_CASE("variable length messages only send valid elements") {
     UBDataLocationResult d{};
     d.anchor_count = anchor_count;
     uint8_t frame[UB_FRAME_SIZE_MAX];
-    return ub_prepare_msg_to_dev(UB_MSG_LOCATION_RESULT, &d, frame,
-                                 sizeof(frame));
+    return ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP,
+                                  UB_MSG_LOCATION_RESULT, &d, frame,
+                                  sizeof(frame));
   };
 
   const int n0 = frame_size_for(0);
@@ -428,7 +429,7 @@ TEST_CASE("anchor_signal at max count fits in the 7-bit payload limit") {
     d.datas[i].rx_rssi = -85.5f;
     d.datas[i].rx_rate = 1.0f;
   }
-  roundtrip(UB_MSG_ANCHOR_SIGNAL, d);
+  roundtrip_to_user(UB_MSG_ANCHOR_SIGNAL, d);
 }
 
 TEST_CASE("out-of-range count from a corrupt device is clamped") {
@@ -542,4 +543,194 @@ TEST_CASE("from_user parser passes frame_id and honours the veto") {
   REQUIRE(cap.frame_id == UB_FRAME_ID_DOWN);
   REQUIRE(cap.msgs.size() == 1);
   REQUIRE(cap.end_count == 1);
+}
+
+// ============================================================
+// 7. 方向归属：msg_id 只在其标注的方向上有效
+//    方向标注见 ubeacon_driver_data.h 中每个 UB_MSG_* 后的 v/^ 注释
+// ============================================================
+
+TEST_CASE("uplink-only messages cannot be built as a downlink frame") {
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  UBDataLocationResult lr{};
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_LOCATION_RESULT, &lr, frame,
+                                sizeof(frame)) < 0);
+  UBDataHeartbeat hb{};
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_HEARTBEAT, &hb, frame, sizeof(frame)) <
+          0);
+  UBDataAnchorPos ap{};
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_ANCHOR_POS, &ap, frame, sizeof(frame)) <
+          0);
+}
+
+TEST_CASE("downlink-only messages cannot be built as an uplink frame") {
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  // READ_* 只在下行存在，上行构造应失败
+  REQUIRE(ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP, UB_MSG_READ_PARAM,
+                                 nullptr, frame, sizeof(frame)) < 0);
+}
+
+TEST_CASE("read requests are downlink-only, empty, and decoded as such") {
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n =
+      ub_prepare_msg_to_dev(UB_MSG_READ_PARAM, nullptr, frame, sizeof(frame));
+  REQUIRE(n > 0);
+
+  Capture cap;
+  UBParserFromUser parser;
+  ub_parser_from_user_init(&parser, on_begin_from_user, on_msg, on_end, &cap);
+  ub_parser_from_user_handle_data(&parser, frame, n);
+  REQUIRE(cap.msgs.size() == 1);
+  REQUIRE(cap.msgs[0].id == UB_MSG_READ_PARAM);
+  REQUIRE(cap.msgs[0].data.empty()); // 空消息，回调收到 data == NULL
+
+  // 同一个 id 出现在上行帧里则不被识别，整条消息忽略
+  auto up = parse_from_dev(make_up_frame(UB_MSG_READ_PARAM, {}));
+  REQUIRE(up.begin_count == 1);
+  REQUIRE(up.end_count == 1);
+  REQUIRE(up.msgs.empty());
+}
+
+TEST_CASE("uplink-only messages in a downlink frame are ignored") {
+  // 设备侧收到一条上行才有的消息(如 HEARTBEAT)，应当忽略而不是误解码
+  UBDataHeartbeat hb{};
+  hb.battery_percent = 80;
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP,
+                                       UB_MSG_HEARTBEAT, &hb, frame,
+                                       sizeof(frame));
+  REQUIRE(n > 0);
+
+  // 把上行帧的 msg 部分原样塞进一个下行帧
+  const int up_header = UB_UID_SIZE + 1;
+  std::vector<uint8_t> msgs(frame + 3 + up_header, frame + n - 1);
+  std::vector<uint8_t> down;
+  down.push_back(UB_FRAME_SOF);
+  const auto payload_size = static_cast<uint16_t>(1 + msgs.size());
+  down.push_back(static_cast<uint8_t>(payload_size & 0xFF));
+  down.push_back(static_cast<uint8_t>(payload_size >> 8));
+  down.push_back(UB_FRAME_ID_DOWN);
+  down.insert(down.end(), msgs.begin(), msgs.end());
+  uint8_t sum = 0;
+  for (uint8_t b : down) {
+    sum += b;
+  }
+  down.push_back(sum);
+
+  Capture cap;
+  UBParserFromUser parser;
+  ub_parser_from_user_init(&parser, on_begin_from_user, on_msg, on_end, &cap);
+  ub_parser_from_user_handle_data(&parser, down.data(),
+                                  static_cast<int>(down.size()));
+  REQUIRE(cap.begin_count == 1);
+  REQUIRE(cap.end_count == 1);
+  REQUIRE(cap.msgs.empty()); // HEARTBEAT 在下行方向不存在
+}
+
+// ============================================================
+// 8. 扩展消息：通过函数指针注入，可选且按方向分开
+// ============================================================
+
+namespace {
+
+// 一条自定义的上行消息：线格式 2 字节，结构体是放大后的 int
+constexpr ub_msg_id_t kExtMsgId = 200;
+struct ExtData {
+  int value;
+};
+
+int ext_encode_dev_to_user(ub_msg_id_t msg_id, const void *data, void *raw,
+                           int raw_size_max) {
+  if (msg_id != kExtMsgId || raw_size_max < 2) {
+    return -1;
+  }
+  const auto v = static_cast<const ExtData *>(data)->value;
+  auto *p = static_cast<uint8_t *>(raw);
+  p[0] = static_cast<uint8_t>(v & 0xFF);
+  p[1] = static_cast<uint8_t>((v >> 8) & 0xFF);
+  return 2;
+}
+
+int ext_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
+                           int payload_size, void *data_buf,
+                           int data_buf_size) {
+  if (msg_id != kExtMsgId || payload_size < 2 ||
+      data_buf_size < static_cast<int>(sizeof(ExtData))) {
+    return -1;
+  }
+  const auto *p = static_cast<const uint8_t *>(payload);
+  static_cast<ExtData *>(data_buf)->value = p[0] | (p[1] << 8);
+  return static_cast<int>(sizeof(ExtData));
+}
+
+// 注入的钩子是全局的，用 RAII 保证用例之间互不影响
+struct ExtendGuard {
+  ExtendGuard() {
+    ub_set_encode_dev_to_user_extend(ext_encode_dev_to_user);
+    ub_set_decode_dev_to_user_extend(ext_decode_dev_to_user);
+  }
+  ~ExtendGuard() {
+    ub_set_encode_dev_to_user_extend(nullptr);
+    ub_set_decode_dev_to_user_extend(nullptr);
+  }
+};
+
+} // namespace
+
+TEST_CASE("without injection an extend msg id is unknown in both directions") {
+  ExtData d{0x1234};
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  REQUIRE(ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP, kExtMsgId, &d, frame,
+                                 sizeof(frame)) < 0);
+  auto cap = parse_from_dev(make_up_frame(kExtMsgId, {0x34, 0x12}));
+  REQUIRE(cap.msgs.empty());
+}
+
+TEST_CASE("injected hooks round-trip a custom message") {
+  ExtendGuard guard;
+
+  ExtData d{0x1234};
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP, kExtMsgId, &d,
+                                       frame, sizeof(frame));
+  REQUIRE(n > 0);
+
+  Capture cap;
+  UBParserFromDev parser;
+  ub_parser_from_dev_init(&parser, on_begin_from_dev, on_msg, on_end, &cap);
+  ub_parser_from_dev_handle_data(&parser, frame, n);
+
+  REQUIRE(cap.msgs.size() == 1);
+  REQUIRE(cap.msgs[0].id == kExtMsgId);
+  REQUIRE(cap.msgs[0].data.size() == sizeof(ExtData));
+  ExtData decoded{};
+  std::memcpy(&decoded, cap.msgs[0].data.data(), sizeof(ExtData));
+  REQUIRE(decoded.value == d.value);
+}
+
+TEST_CASE("injection is per direction") {
+  ExtendGuard guard; // 只注入了 dev_to_user 两个钩子
+
+  ExtData d{0x1234};
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  // 下行未注入，同一个 msg_id 仍然不被识别
+  REQUIRE(ub_prepare_msg_to_dev(kExtMsgId, &d, frame, sizeof(frame)) < 0);
+}
+
+TEST_CASE("extend hooks cannot override built-in messages") {
+  // 钩子只在内建表未命中时才被调用：内建消息仍走内建实现
+  ub_set_encode_dev_to_user_extend(
+      [](ub_msg_id_t, const void *, void *, int) { return 99; });
+  UBDataFind find{};
+  find.duration = 7;
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP, UB_MSG_FIND,
+                                       &find, frame, sizeof(frame));
+  ub_set_encode_dev_to_user_extend(nullptr);
+
+  REQUIRE(n > 0);
+  auto cap = parse_from_dev(std::vector<uint8_t>(frame, frame + n));
+  REQUIRE(cap.msgs.size() == 1);
+  REQUIRE(cap.msgs[0].id == UB_MSG_FIND);
+  REQUIRE(cap.msgs[0].data.size() == sizeof(UBDataFind));
 }
