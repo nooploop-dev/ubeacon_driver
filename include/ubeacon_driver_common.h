@@ -72,13 +72,12 @@ typedef uint8_t ub_msg_id_t;
 // ub_set_*_extend() 注入。不注入即为不支持任何扩展消息（默认行为）。
 // 钩子只在内建消息表未命中时才被调用，无法覆盖内建消息。
 
-// 编码：把 data 转成线格式写入 raw，返回写入的字节数；
-// 不支持的 msg_id 返回 -1。raw_size_max 为 raw 的容量
-typedef int (*ub_encode_extend_f)(ub_msg_id_t msg_id, const void *data,
-                                  void *raw, int raw_size_max);
+// 编码：把 data 转成线格式写入 raw_data，并把写入的字节数写入 *raw_data_size
+typedef void (*ub_encode_extend_f)(ub_msg_id_t msg_id, const void *data,
+                                   void *raw_data, int *raw_data_size);
 
-// 解码：把 payload 转成 UBData* 写入 data_buf，返回写入的字节数（空消息返回 0）；
-// 不支持的 msg_id 返回 -1。data_buf 容量不足时也应返回 -1
+// 解码：把 payload 转成 UBData* 写入 data_buf，返回写入的字节数（空消息返回
+// 0）； 不支持的 msg_id 返回 -1。data_buf 容量不足时也应返回 -1
 typedef int (*ub_decode_extend_f)(ub_msg_id_t msg_id, const void *payload,
                                   int payload_size, void *data_buf,
                                   int data_buf_size);
@@ -101,7 +100,7 @@ static inline void ub_msg_copy_payload(void *dst, int dst_size, const void *src,
   do {                                                                         \
     _Static_assert(sizeof(RAW_T) <= UB_MSG_PAYLOAD_SIZE_MAX,                   \
                    #RAW_T " 超出单条消息 payload 上限");                       \
-    TO_RAW((const DATA_T *)data, raw.bytes, &raw_size);                        \
+    TO_RAW((const DATA_T *)data, raw_data, raw_data_size);                     \
   } while (0)
 
 // 解码：消息字节 -> UBData*

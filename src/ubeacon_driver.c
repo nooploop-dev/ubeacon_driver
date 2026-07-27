@@ -59,33 +59,15 @@ void ub_set_decode_user_to_dev_extend(ub_decode_extend_f decode) {
   s_decode_user_to_dev_extend = decode;
 }
 
-// 空消息：只有消息 id、没有 payload。目前只有下行的 READ_* 读请求属于此类
-static bool is_empty_msg_user_to_dev(ub_msg_id_t msg_id) {
-  switch (msg_id) {
-  case UB_MSG_READ_PARAM:
-  case UB_MSG_READ_INTERFACE_PARAM:
-  case UB_MSG_READ_UART_INTERFACE_PARAM:
-  case UB_MSG_READ_IIC_INTERFACE_PARAM:
-  case UB_MSG_READ_UWB_INTERFACE_PARAM:
-  case UB_MSG_READ_RUN_TIME_PARAM:
-  case UB_MSG_READ_BLE_INTERFACE_PARAM:
-    return true;
-  default:
-    return false;
-  }
-}
-
 // 上行编码：设备把自己要上报的消息转成字节。对应 ubeacon_driver_data.h 中标 ^
 // 的消息
 static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
                                  void *msg_buf, int msg_buf_size) {
-  // 上行没有空消息，data 必须给出
-  if (data == NULL) {
-    return -1;
-  }
 
   UBRawBuf raw;
+  uint8_t *raw_data = raw.bytes;
   int raw_size = -1;
+  int *raw_data_size = &raw_size;
 
   switch (msg_id) {
   case UB_MSG_RESTART:
@@ -168,34 +150,38 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     break;
   default:
     if (s_encode_dev_to_user_extend) {
-      raw_size = s_encode_dev_to_user_extend(msg_id, data, raw.bytes,
-                                             (int)sizeof(raw.bytes));
+      s_encode_dev_to_user_extend(msg_id, data, raw_data, raw_data_size);
     }
     break;
   }
 
-  if (raw_size < 0) {
+  if (*raw_data_size < 0) {
     return -1; // 该方向上不认识的消息
   }
-  return ub_msg_write(msg_buf, msg_buf_size, msg_id, raw.bytes, raw_size);
+  return ub_msg_write(msg_buf, msg_buf_size, msg_id, raw_data, *raw_data_size);
 }
 
 // 下行编码：主机把要下发的命令转成字节。对应 ubeacon_driver_data.h 中标 v
 // 的消息
 static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
                                  void *msg_buf, int msg_buf_size) {
-  // 读请求等空消息只写消息头，data 传 NULL 即可
-  if (is_empty_msg_user_to_dev(msg_id)) {
-    return ub_msg_write(msg_buf, msg_buf_size, msg_id, NULL, 0);
-  }
-  if (data == NULL) {
-    return -1; // 非空消息必须给出 data
-  }
 
   UBRawBuf raw;
+  uint8_t *raw_data = raw.bytes;
   int raw_size = -1;
+  int *raw_data_size = &raw_size;
 
   switch (msg_id) {
+  case UB_MSG_READ_PARAM:
+  case UB_MSG_READ_INTERFACE_PARAM:
+  case UB_MSG_READ_UART_INTERFACE_PARAM:
+  case UB_MSG_READ_IIC_INTERFACE_PARAM:
+  case UB_MSG_READ_UWB_INTERFACE_PARAM:
+  case UB_MSG_READ_RUN_TIME_PARAM:
+  case UB_MSG_READ_BLE_INTERFACE_PARAM:
+    // 读请求等空消息只写消息头
+    *raw_data_size = 0;
+    break;
   case UB_MSG_RESTART:
     UB_MSG_DATA_ENCODE(UBRawDataRestart, ub_data_restart_to_raw, UBDataRestart);
     break;
@@ -251,16 +237,14 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
     break;
   default:
     if (s_encode_user_to_dev_extend) {
-      raw_size = s_encode_user_to_dev_extend(msg_id, data, raw.bytes,
-                                             (int)sizeof(raw.bytes));
+      s_encode_user_to_dev_extend(msg_id, data, raw_data, raw_data_size);
     }
     break;
   }
-
-  if (raw_size < 0) {
+  if (*raw_data_size < 0) {
     return -1; // 该方向上不认识的消息
   }
-  return ub_msg_write(msg_buf, msg_buf_size, msg_id, raw.bytes, raw_size);
+  return ub_msg_write(msg_buf, msg_buf_size, msg_id, raw_data, *raw_data_size);
 }
 
 // 上行解码：主机解析设备上报的消息。对应 ubeacon_driver_data.h 中标 ^ 的消息
@@ -364,14 +348,19 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
 static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
                                  int payload_size, void *data_buf,
                                  int data_buf_size) {
-  // 读请求等空消息：无 payload，回调收到 data == NULL
-  if (is_empty_msg_user_to_dev(msg_id)) {
-    return 0;
-  }
 
   int data_size = -1;
 
   switch (msg_id) {
+  case UB_MSG_READ_PARAM:
+  case UB_MSG_READ_INTERFACE_PARAM:
+  case UB_MSG_READ_UART_INTERFACE_PARAM:
+  case UB_MSG_READ_IIC_INTERFACE_PARAM:
+  case UB_MSG_READ_UWB_INTERFACE_PARAM:
+  case UB_MSG_READ_RUN_TIME_PARAM:
+  case UB_MSG_READ_BLE_INTERFACE_PARAM:
+    data_size = 0;
+    break;
   case UB_MSG_RESTART:
     UB_MSG_DATA_DECODE(UBRawDataRestart, ub_data_restart_from_raw,
                        UBDataRestart);
