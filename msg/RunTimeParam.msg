@@ -1,0 +1,1 @@
+uint8 sniff_duty_cycle
