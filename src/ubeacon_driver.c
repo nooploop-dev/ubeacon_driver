@@ -150,11 +150,6 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataRunTimeParam, ub_data_run_time_param_to_raw,
                        UBDataRunTimeParam);
     break;
-  case UB_MSG_BLE_INTERFACE_PARAM:
-    UB_MSG_DATA_ENCODE(UBRawDataBleInterfaceParam,
-                       ub_data_ble_interface_param_to_raw,
-                       UBDataBleInterfaceParam);
-    break;
   case UB_MSG_ANCHOR_DDOAS:
     UB_MSG_DATA_ENCODE(UBRawDataAnchorDdoas, ub_data_anchor_ddoas_to_raw,
                        UBDataAnchorDdoas);
@@ -203,7 +198,6 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_READ_IIC_INTERFACE_PARAM:
   case UB_MSG_READ_UWB_INTERFACE_PARAM:
   case UB_MSG_READ_RUN_TIME_PARAM:
-  case UB_MSG_READ_BLE_INTERFACE_PARAM:
     // 读请求等空消息只写消息头
     *raw_data_size = 0;
     break;
@@ -243,11 +237,6 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_WRITE_RUN_TIME_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataRunTimeParam, ub_data_run_time_param_to_raw,
                        UBDataRunTimeParam);
-    break;
-  case UB_MSG_WRITE_BLE_INTERFACE_PARAM:
-    UB_MSG_DATA_ENCODE(UBRawDataBleInterfaceParam,
-                       ub_data_ble_interface_param_to_raw,
-                       UBDataBleInterfaceParam);
     break;
   case UB_MSG_Z_MEASUREMENT:
     UB_MSG_DATA_ENCODE(UBRawDataZMeasurement, ub_data_z_measurement_to_raw,
@@ -361,11 +350,6 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
     UB_MSG_DATA_DECODE(UBRawDataRunTimeParam, ub_data_run_time_param_from_raw,
                        UBDataRunTimeParam);
     break;
-  case UB_MSG_BLE_INTERFACE_PARAM:
-    UB_MSG_DATA_DECODE(UBRawDataBleInterfaceParam,
-                       ub_data_ble_interface_param_from_raw,
-                       UBDataBleInterfaceParam);
-    break;
   case UB_MSG_ANCHOR_DDOAS:
     UB_MSG_DATA_DECODE(UBRawDataAnchorDdoas, ub_data_anchor_ddoas_from_raw,
                        UBDataAnchorDdoas);
@@ -409,7 +393,6 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_READ_IIC_INTERFACE_PARAM:
   case UB_MSG_READ_UWB_INTERFACE_PARAM:
   case UB_MSG_READ_RUN_TIME_PARAM:
-  case UB_MSG_READ_BLE_INTERFACE_PARAM:
     data_size = 0;
     break;
   case UB_MSG_RESTART:
@@ -449,11 +432,6 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_WRITE_RUN_TIME_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataRunTimeParam, ub_data_run_time_param_from_raw,
                        UBDataRunTimeParam);
-    break;
-  case UB_MSG_WRITE_BLE_INTERFACE_PARAM:
-    UB_MSG_DATA_DECODE(UBRawDataBleInterfaceParam,
-                       ub_data_ble_interface_param_from_raw,
-                       UBDataBleInterfaceParam);
     break;
   case UB_MSG_Z_MEASUREMENT:
     UB_MSG_DATA_DECODE(UBRawDataZMeasurement, ub_data_z_measurement_from_raw,

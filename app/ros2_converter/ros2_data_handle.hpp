@@ -9,7 +9,6 @@
 #include <ubeacon_driver/msg/anchor_pos.hpp>
 #include <ubeacon_driver/msg/anchor_signal.hpp>
 #include <ubeacon_driver/msg/attitude.hpp>
-#include <ubeacon_driver/msg/ble_interface_param.hpp>
 #include <ubeacon_driver/msg/find.hpp>
 #include <ubeacon_driver/msg/global_time_status.hpp>
 #include <ubeacon_driver/msg/heartbeat.hpp>
@@ -59,7 +58,6 @@ private:
   void dispatch(const UBDataUartInterfaceParam &data);
   void dispatch(const UBDataIicInterfaceParam &data);
   void dispatch(const UBDataUwbInterfaceParam &data);
-  void dispatch(const UBDataBleInterfaceParam &data);
 
   // 用户 -> 设备(v)，订阅话题后发送给设备
   void on_find(const ubeacon_driver::msg::Find::SharedPtr msg);
@@ -87,7 +85,6 @@ private:
   void on_uart_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
   void on_iic_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
   void on_uwb_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
-  void on_ble_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
 
   UBParserFromDev parser_;
   rclcpp::Node::SharedPtr node_;
@@ -130,8 +127,6 @@ private:
       iic_interface_param_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::UwbInterfaceParam>::SharedPtr
       uwb_interface_param_pub_;
-  rclcpp::Publisher<ubeacon_driver::msg::BleInterfaceParam>::SharedPtr
-      ble_interface_param_pub_;
 
   rclcpp::Subscription<ubeacon_driver::msg::Find>::SharedPtr find_sub_;
   rclcpp::Subscription<ubeacon_driver::msg::Restart>::SharedPtr restart_sub_;
@@ -163,6 +158,4 @@ private:
       iic_interface_param_read_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr
       uwb_interface_param_read_sub_;
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr
-      ble_interface_param_read_sub_;
 };

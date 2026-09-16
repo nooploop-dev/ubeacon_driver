@@ -71,9 +71,6 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
   uwb_interface_param_pub_ =
       node_->create_publisher<ubeacon_driver::msg::UwbInterfaceParam>(
           "~/uwb_interface_param", 50);
-  ble_interface_param_pub_ =
-      node_->create_publisher<ubeacon_driver::msg::BleInterfaceParam>(
-          "~/ble_interface_param", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = node_->create_subscription<ubeacon_driver::msg::Find>(
@@ -138,10 +135,6 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
       node_->create_subscription<std_msgs::msg::Empty>(
           "~/uwb_interface_param_read", 50,
           std::bind(&Ros2DataHandle::on_uwb_interface_param_read, this, _1));
-  ble_interface_param_read_sub_ =
-      node_->create_subscription<std_msgs::msg::Empty>(
-          "~/ble_interface_param_read", 50,
-          std::bind(&Ros2DataHandle::on_ble_interface_param_read, this, _1));
 }
 
 // ---------------- 设备 -> 用户(^) ----------------
@@ -422,16 +415,6 @@ void Ros2DataHandle::dispatch(const UBDataUwbInterfaceParam &data) {
   uwb_interface_param_pub_->publish(msg);
 }
 
-void Ros2DataHandle::dispatch(const UBDataBleInterfaceParam &data) {
-  ubeacon_driver::msg::BleInterfaceParam msg;
-  msg.company_id[0] = data.company_id[0];
-  msg.company_id[1] = data.company_id[1];
-  msg.data_type = data.data_type;
-  msg.random_window = data.random_window;
-  msg.send_count = data.send_count;
-  ble_interface_param_pub_->publish(msg);
-}
-
 // ---------------- 用户 -> 设备(v) ----------------
 
 void Ros2DataHandle::on_find(const ubeacon_driver::msg::Find::SharedPtr msg) {
@@ -588,12 +571,6 @@ void Ros2DataHandle::on_uwb_interface_param_read(
   main_common_send_msg(UB_MSG_READ_UWB_INTERFACE_PARAM, nullptr, 0);
 }
 
-void Ros2DataHandle::on_ble_interface_param_read(
-    const std_msgs::msg::Empty::SharedPtr msg) {
-  (void)msg;
-  main_common_send_msg(UB_MSG_READ_BLE_INTERFACE_PARAM, nullptr, 0);
-}
-
 // ---------------- 驱动回调 ----------------
 
 void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
@@ -659,9 +636,6 @@ void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_UWB_INTERFACE_PARAM:
     self->dispatch(*static_cast<const UBDataUwbInterfaceParam *>(data));
-    break;
-  case UB_MSG_BLE_INTERFACE_PARAM:
-    self->dispatch(*static_cast<const UBDataBleInterfaceParam *>(data));
     break;
   default:
     break;

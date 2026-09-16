@@ -60,10 +60,6 @@ enum {
   UB_MSG_WRITE_RUN_TIME_PARAM = 101,                   // v
   UB_MSG_RUN_TIME_PARAM = UB_MSG_WRITE_RUN_TIME_PARAM, // ^
 
-  UB_MSG_READ_BLE_INTERFACE_PARAM = 102,                         // v
-  UB_MSG_WRITE_BLE_INTERFACE_PARAM = 103,                        // v
-  UB_MSG_BLE_INTERFACE_PARAM = UB_MSG_WRITE_BLE_INTERFACE_PARAM, // ^
-
   UB_MSG_ANCHOR_DDOAS = 104, // ^
 
   UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG = 105, // v
@@ -242,17 +238,6 @@ typedef struct {
   // 时有效
   uint8_t dis_remain_slot_count;
 } UBDataUwbInterfaceParam;
-
-// ROM ble 通信参数
-typedef struct {
-  // 广播数据帧中的 company_id
-  uint8_t company_id[2];
-  uint8_t data_type;
-  // 发送信号的随机窗口
-  float random_window;
-  // 每帧数据连续发送次数
-  uint8_t send_count;
-} UBDataBleInterfaceParam;
 
 // 心跳消息，5s 定时发送到后台
 typedef struct {

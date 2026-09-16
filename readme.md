@@ -278,7 +278,6 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/uart_interface_param` | `UartInterfaceParam` | 串口通信参数 |
 | `~/iic_interface_param` | `IicInterfaceParam` | iic 通信参数 |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | uwb 通信参数 |
-| `~/ble_interface_param` | `BleInterfaceParam` | ble 通信参数 |
 | `~/user_data_from_device` | `UserData` | 设备上报的用户自定义数据 |
 
 **用户 → 设备**（发布以下发命令）
@@ -302,7 +301,6 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/uart_interface_param_read` | `std_msgs/Empty` | 读取串口通信参数 |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | 读取 iic 通信参数 |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | 读取 uwb 通信参数 |
-| `~/ble_interface_param_read` | `std_msgs/Empty` | 读取 ble 通信参数 |
 
 ## Foxglove 可视化（无需 ROS）
 

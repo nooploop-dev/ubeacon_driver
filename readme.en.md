@@ -278,7 +278,6 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/uart_interface_param` | `UartInterfaceParam` | UART parameters |
 | `~/iic_interface_param` | `IicInterfaceParam` | IIC parameters |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | UWB parameters |
-| `~/ble_interface_param` | `BleInterfaceParam` | BLE parameters |
 | `~/user_data_from_device` | `UserData` | User-defined data reported by the device |
 
 **User → Device** (publish to send commands)
@@ -302,7 +301,6 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/uart_interface_param_read` | `std_msgs/Empty` | Read UART parameters |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | Read IIC parameters |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | Read UWB parameters |
-| `~/ble_interface_param_read` | `std_msgs/Empty` | Read BLE parameters |
 
 ## Foxglove Visualization (no ROS required)
 

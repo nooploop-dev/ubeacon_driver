@@ -51,8 +51,6 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
       "iic_interface_param", 50);
   uwb_interface_param_pub_ = nh_->advertise<ubeacon_driver::UwbInterfaceParam>(
       "uwb_interface_param", 50);
-  ble_interface_param_pub_ = nh_->advertise<ubeacon_driver::BleInterfaceParam>(
-      "ble_interface_param", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = nh_->subscribe("find", 50, &Ros1DataHandle::on_find, this);
@@ -96,9 +94,6 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
   uwb_interface_param_read_sub_ =
       nh_->subscribe("uwb_interface_param_read", 50,
                      &Ros1DataHandle::on_uwb_interface_param_read, this);
-  ble_interface_param_read_sub_ =
-      nh_->subscribe("ble_interface_param_read", 50,
-                     &Ros1DataHandle::on_ble_interface_param_read, this);
 }
 
 // ---------------- 设备 -> 用户(^) ----------------
@@ -379,16 +374,6 @@ void Ros1DataHandle::dispatch(const UBDataUwbInterfaceParam &data) {
   uwb_interface_param_pub_.publish(msg);
 }
 
-void Ros1DataHandle::dispatch(const UBDataBleInterfaceParam &data) {
-  ubeacon_driver::BleInterfaceParam msg;
-  msg.company_id[0] = data.company_id[0];
-  msg.company_id[1] = data.company_id[1];
-  msg.data_type = data.data_type;
-  msg.random_window = data.random_window;
-  msg.send_count = data.send_count;
-  ble_interface_param_pub_.publish(msg);
-}
-
 // ---------------- 用户 -> 设备(v) ----------------
 
 void Ros1DataHandle::on_find(const ubeacon_driver::Find::ConstPtr &msg) {
@@ -543,12 +528,6 @@ void Ros1DataHandle::on_uwb_interface_param_read(
   main_common_send_msg(UB_MSG_READ_UWB_INTERFACE_PARAM, nullptr, 0);
 }
 
-void Ros1DataHandle::on_ble_interface_param_read(
-    const std_msgs::Empty::ConstPtr &msg) {
-  (void)msg;
-  main_common_send_msg(UB_MSG_READ_BLE_INTERFACE_PARAM, nullptr, 0);
-}
-
 // ---------------- 驱动回调 ----------------
 
 void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
@@ -614,9 +593,6 @@ void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_UWB_INTERFACE_PARAM:
     self->dispatch(*static_cast<const UBDataUwbInterfaceParam *>(data));
-    break;
-  case UB_MSG_BLE_INTERFACE_PARAM:
-    self->dispatch(*static_cast<const UBDataBleInterfaceParam *>(data));
     break;
   default:
     break;

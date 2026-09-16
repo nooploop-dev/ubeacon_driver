@@ -143,13 +143,6 @@ typedef struct {
 } UBRawDataUwbInterfaceParam;
 
 typedef struct {
-  uint8_t company_id[2];
-  uint8_t data_type;
-  uint8_t _random_window; // random_window = 0.01 * _random_window
-  uint8_t send_count : 3;
-} UBRawDataBleInterfaceParam;
-
-typedef struct {
   uint8_t battery_percent : 7;
   uint8_t battery_charging : 1;
   uint8_t need_restart : 1;
@@ -539,26 +532,6 @@ static inline void ub_data_uwb_interface_param_to_raw(
   raw->dis_frequency = data->dis_frequency;
   raw->dis_slot_count_max = data->dis_slot_count_max;
   raw->dis_remain_slot_count = data->dis_remain_slot_count;
-  *size = (int)sizeof(*raw);
-}
-
-static inline void ub_data_ble_interface_param_from_raw(
-    const UBRawDataBleInterfaceParam *raw, UBDataBleInterfaceParam *data) {
-  data->company_id[0] = raw->company_id[0];
-  data->company_id[1] = raw->company_id[1];
-  data->data_type = raw->data_type;
-  data->random_window = raw->_random_window * 0.01f;
-  data->send_count = raw->send_count;
-}
-static inline void ub_data_ble_interface_param_to_raw(
-    const UBDataBleInterfaceParam *data, void *buf, int *size) {
-  UBRawDataBleInterfaceParam *raw = (UBRawDataBleInterfaceParam *)buf;
-  memset(raw, 0, sizeof(*raw));
-  raw->company_id[0] = data->company_id[0];
-  raw->company_id[1] = data->company_id[1];
-  raw->data_type = data->data_type;
-  raw->_random_window = (uint8_t)ub_round_i32(data->random_window / 0.01f);
-  raw->send_count = data->send_count & 0x07;
   *size = (int)sizeof(*raw);
 }
 

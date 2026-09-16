@@ -244,16 +244,6 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
                  data->dis_slot_count_max, data->dis_remain_slot_count);
     break;
   }
-  case UB_MSG_BLE_INTERFACE_PARAM: {
-    auto data =
-        get_data<UBDataBleInterfaceParam>(msg_payload, msg_payload_size);
-    spdlog::info(
-        "{},MSG_BLE_INTERFACE_PARAM: {{company_id={},data_type={:#04x},"
-        "random_window={:.2f},send_count={}}}",
-        header, vec2str(data->company_id), data->data_type, data->random_window,
-        data->send_count);
-    break;
-  }
   case UB_MSG_LOCATION_RESULT: {
     auto data = get_data<UBDataLocationResult>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_LOCATION_RESULT: {{local_time_us={},pos={},vel={},"

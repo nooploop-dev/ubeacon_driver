@@ -9,7 +9,6 @@
 #include <ubeacon_driver/AnchorPos.h>
 #include <ubeacon_driver/AnchorSignal.h>
 #include <ubeacon_driver/Attitude.h>
-#include <ubeacon_driver/BleInterfaceParam.h>
 #include <ubeacon_driver/Find.h>
 #include <ubeacon_driver/GlobalTimeStatus.h>
 #include <ubeacon_driver/Heartbeat.h>
@@ -59,7 +58,6 @@ private:
   void dispatch(const UBDataUartInterfaceParam &data);
   void dispatch(const UBDataIicInterfaceParam &data);
   void dispatch(const UBDataUwbInterfaceParam &data);
-  void dispatch(const UBDataBleInterfaceParam &data);
 
   // 用户 -> 设备(v)，订阅话题后发送给设备
   void on_find(const ubeacon_driver::Find::ConstPtr &msg);
@@ -81,7 +79,6 @@ private:
   void on_uart_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
   void on_iic_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
   void on_uwb_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
-  void on_ble_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
 
   UBParserFromDev parser_;
   ros::NodeHandle *nh_;
@@ -108,7 +105,6 @@ private:
   ros::Publisher uart_interface_param_pub_;
   ros::Publisher iic_interface_param_pub_;
   ros::Publisher uwb_interface_param_pub_;
-  ros::Publisher ble_interface_param_pub_;
 
   ros::Subscriber find_sub_;
   ros::Subscriber restart_sub_;
@@ -127,5 +123,4 @@ private:
   ros::Subscriber uart_interface_param_read_sub_;
   ros::Subscriber iic_interface_param_read_sub_;
   ros::Subscriber uwb_interface_param_read_sub_;
-  ros::Subscriber ble_interface_param_read_sub_;
 };

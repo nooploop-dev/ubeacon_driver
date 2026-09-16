@@ -95,16 +95,6 @@ TEST_CASE("round trip: uwb_interface_param") {
   roundtrip(UB_MSG_UWB_INTERFACE_PARAM, d);
 }
 
-TEST_CASE("round trip: ble_interface_param") {
-  UBDataBleInterfaceParam d{};
-  d.company_id[0] = 0x06;
-  d.company_id[1] = 0x39;
-  d.data_type = 0x50;
-  d.random_window = 0.1f;
-  d.send_count = 2;
-  roundtrip(UB_MSG_BLE_INTERFACE_PARAM, d);
-}
-
 TEST_CASE("round trip: location_result") {
   UBDataLocationResult d{};
   d.local_time_us = 123456789;
