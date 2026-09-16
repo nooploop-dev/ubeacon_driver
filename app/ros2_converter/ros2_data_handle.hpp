@@ -4,21 +4,26 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/empty.hpp>
+#include <ubeacon_driver/msg/anchor2_tag_signal.hpp>
 #include <ubeacon_driver/msg/anchor_ddoas.hpp>
 #include <ubeacon_driver/msg/anchor_pos.hpp>
 #include <ubeacon_driver/msg/anchor_signal.hpp>
+#include <ubeacon_driver/msg/attitude.hpp>
 #include <ubeacon_driver/msg/ble_interface_param.hpp>
 #include <ubeacon_driver/msg/find.hpp>
 #include <ubeacon_driver/msg/global_time_status.hpp>
 #include <ubeacon_driver/msg/heartbeat.hpp>
 #include <ubeacon_driver/msg/iic_interface_param.hpp>
-#include <ubeacon_driver/msg/interface_param.hpp>
+#include <ubeacon_driver/msg/imu.hpp>
 #include <ubeacon_driver/msg/location_result.hpp>
 #include <ubeacon_driver/msg/map_measurement.hpp>
 #include <ubeacon_driver/msg/param.hpp>
+#include <ubeacon_driver/msg/peripheral_config.hpp>
 #include <ubeacon_driver/msg/restart.hpp>
 #include <ubeacon_driver/msg/run_time_param.hpp>
 #include <ubeacon_driver/msg/state_control.hpp>
+#include <ubeacon_driver/msg/tag2_anchor_dis.hpp>
+#include <ubeacon_driver/msg/tag2_anchor_pdoa.hpp>
 #include <ubeacon_driver/msg/uart_interface_param.hpp>
 #include <ubeacon_driver/msg/user_data.hpp>
 #include <ubeacon_driver/msg/uwb_interface_param.hpp>
@@ -38,13 +43,19 @@ private:
   void dispatch(const UBDataLocationResult &data);
   void dispatch(const UBDataHeartbeat &data);
   void dispatch(const UBDataAnchorSignal &data);
+  void dispatch(const UBDataAnchor2TagSignal &data);
+  void dispatch(const UBDataTag2AnchorDis &data);
+  void dispatch(const UBDataTag2AnchorPdoa &data);
   void dispatch(const UBDataAnchorDdoas &data);
   void dispatch(const UBDataAnchorPos &data);
   void dispatch(const UBDataGlobalTimeStatus &data);
   void dispatch(const UBDataUserData &data);
+  void dispatch(const UBDataImu &data);
+  void dispatch(const UBDataAttitude &data);
   void dispatch(const UBDataParam &data);
   void dispatch(const UBDataRunTimeParam &data);
-  void dispatch(const UBDataInterfaceParam &data);
+  // 软件/硬件/最终三份外设配置共用同一结构，按 msg_id 选择发布者
+  void dispatch(ub_msg_id_t msg_id, const UBDataPeripheralConfig &data);
   void dispatch(const UBDataUartInterfaceParam &data);
   void dispatch(const UBDataIicInterfaceParam &data);
   void dispatch(const UBDataUwbInterfaceParam &data);
@@ -66,7 +77,13 @@ private:
   void on_run_time_param_read(const std_msgs::msg::Empty::SharedPtr msg);
   void on_run_time_param_write(
       const ubeacon_driver::msg::RunTimeParam::SharedPtr msg);
-  void on_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
+  void on_peripheral_config_read(const std_msgs::msg::Empty::SharedPtr msg);
+  void on_peripheral_config_write(
+      const ubeacon_driver::msg::PeripheralConfig::SharedPtr msg);
+  void on_hardware_peripheral_config_read(
+      const std_msgs::msg::Empty::SharedPtr msg);
+  void
+  on_final_peripheral_config_read(const std_msgs::msg::Empty::SharedPtr msg);
   void on_uart_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
   void on_iic_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
   void on_uwb_interface_param_read(const std_msgs::msg::Empty::SharedPtr msg);
@@ -83,6 +100,14 @@ private:
   rclcpp::Publisher<ubeacon_driver::msg::Heartbeat>::SharedPtr heartbeat_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::AnchorSignal>::SharedPtr
       anchor_signal_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::Anchor2TagSignal>::SharedPtr
+      anchor2tag_signal_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::Tag2AnchorDis>::SharedPtr
+      tag2anchor_dis_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::Tag2AnchorPdoa>::SharedPtr
+      tag2anchor_pdoa_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::Imu>::SharedPtr imu_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::Attitude>::SharedPtr attitude_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::AnchorDdoas>::SharedPtr
       anchor_ddoas_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::AnchorPos>::SharedPtr anchor_pos_pub_;
@@ -93,8 +118,12 @@ private:
   rclcpp::Publisher<ubeacon_driver::msg::Param>::SharedPtr param_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::RunTimeParam>::SharedPtr
       run_time_param_pub_;
-  rclcpp::Publisher<ubeacon_driver::msg::InterfaceParam>::SharedPtr
-      interface_param_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::PeripheralConfig>::SharedPtr
+      peripheral_config_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::PeripheralConfig>::SharedPtr
+      hardware_peripheral_config_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::PeripheralConfig>::SharedPtr
+      final_peripheral_config_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::UartInterfaceParam>::SharedPtr
       uart_interface_param_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::IicInterfaceParam>::SharedPtr
@@ -121,7 +150,13 @@ private:
   rclcpp::Subscription<ubeacon_driver::msg::RunTimeParam>::SharedPtr
       run_time_param_write_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr
-      interface_param_read_sub_;
+      peripheral_config_read_sub_;
+  rclcpp::Subscription<ubeacon_driver::msg::PeripheralConfig>::SharedPtr
+      peripheral_config_write_sub_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr
+      hardware_peripheral_config_read_sub_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr
+      final_peripheral_config_read_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr
       uart_interface_param_read_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr

@@ -34,9 +34,17 @@ TEST_CASE("round trip: param") {
   d.output.anchor_signal = true;
   d.output.anchor_ddoa = true;
   d.output.anchor_link_status = true;
+  d.output.imu = true;
+  d.output.attitude = true;
+  d.output.dis = true;
+  d.output.pdoa = true;
   d.sniff_duty_cycle = 20;
   d.update_interval_max = 5;
   d.reset_interval = 3000;
+  d.min_sync_anchor_count = 2;
+  d.min_sniff_duty_cycle = 5;
+  d.disable_anchor_data_output_with_result = true;
+  d.static_map_id = 3;
   roundtrip(UB_MSG_PARAM, d);
 }
 
@@ -46,11 +54,22 @@ TEST_CASE("round trip: run_time_param") {
   roundtrip(UB_MSG_RUN_TIME_PARAM, d);
 }
 
-TEST_CASE("round trip: interface_param") {
-  UBDataInterfaceParam d{};
+TEST_CASE("round trip: peripheral_config") {
+  UBDataPeripheralConfig d{};
   d.uart = true;
   d.uwb = true;
-  roundtrip(UB_MSG_INTERFACE_PARAM, d);
+  d.four_g = true;
+  d.priority = true;
+  d.bee = true;
+  d.key = true;
+  d.battery = true;
+  d.battery_chargeable = true;
+  d.imu = true;
+  d.gnss = true;
+  roundtrip(UB_MSG_PERIPHERAL_CONFIG, d);
+  // 硬件配置与最终配置只读，共用同一结构，仅上行
+  roundtrip_to_user(UB_MSG_HARDWARE_PERIPHERAL_CONFIG, d);
+  roundtrip_to_user(UB_MSG_FINAL_PERIPHERAL_CONFIG, d);
 }
 
 TEST_CASE("round trip: uart_interface_param") {
@@ -67,8 +86,12 @@ TEST_CASE("round trip: iic_interface_param") {
 
 TEST_CASE("round trip: uwb_interface_param") {
   UBDataUwbInterfaceParam d{};
-  d.random_window = 0.1f;
-  d.max_rx_interval = 1.0f;
+  d.random_window_ms = 20;
+  d.max_rx_interval_ms = 1000;
+  d.min_tx_interval_ms = 100;
+  d.dis_frequency = 5.0f;
+  d.dis_slot_count_max = 6;
+  d.dis_remain_slot_count = 1;
   roundtrip(UB_MSG_UWB_INTERFACE_PARAM, d);
 }
 
@@ -128,8 +151,12 @@ TEST_CASE("round trip: heartbeat") {
   d.firmware_version[1] = 2;
   d.firmware_version[2] = 3;
   d.firmware_version[3] = 4;
+  d.hardware_enabled_four_g = true;
   std::memcpy(d.uid, kUid, UB_UID_SIZE);
   d.battery_voltage = 4.0f;
+  d.recent_rx_sts_error_occurred = true;
+  d.recent_global_time_error_occurred = true;
+  d.recent_peer_local_time_error_occurred = true;
   roundtrip_to_user(UB_MSG_HEARTBEAT, d);
 }
 
@@ -170,7 +197,8 @@ TEST_CASE("round trip: anchor_signal") {
 
 TEST_CASE("round trip: anchor_ddoas") {
   UBDataAnchorDdoas d{};
-  d.local_time_us = 555;
+  d.begin_time_us = 555;
+  d.time_slot_duration_us = 1000;
   d.count = 2;
   d.datas[0].a0 = 0x3001;
   d.datas[0].a1 = 0x3002;
@@ -179,6 +207,81 @@ TEST_CASE("round trip: anchor_ddoas") {
   d.datas[1].a1 = 0x3004;
   d.datas[1].ddoa = -4.56f;
   roundtrip_to_user(UB_MSG_ANCHOR_DDOAS, d);
+}
+
+TEST_CASE("round trip: anchor2tag_signal") {
+  UBDataAnchor2TagSignal d{};
+  d.begin_time_us = 111222333;
+  d.time_slot_duration_us = 500;
+  d.count = 2;
+  d.datas[0].addr = 0x2001;
+  d.datas[0].rx_rssi = -85.5f;
+  d.datas[0].fp_rssi = -90.0f;
+  d.datas[0].uwb_clock_offset_ppm = 1.23f;
+  d.datas[0].mcu_clock_offset_ppm = -4.56f;
+  d.datas[0].rx_rate = 1.0f;
+  d.datas[1].addr = 0x2002;
+  d.datas[1].rx_rssi = -95.0f;
+  d.datas[1].fp_rssi = -99.5f;
+  d.datas[1].uwb_clock_offset_ppm = -2.0f;
+  d.datas[1].mcu_clock_offset_ppm = 3.0f;
+  d.datas[1].rx_rate = 0.75f;
+  roundtrip_to_user(UB_MSG_ANCHOR2TAG_SIGNAL, d);
+}
+
+TEST_CASE("round trip: tag2anchor_dis") {
+  UBDataTag2AnchorDis d{};
+  d.begin_time_us = 444555666;
+  d.time_slot_duration_us = 1000;
+  d.count = 3;
+  d.datas[0].addr = 0x2001;
+  d.datas[0].dis = 1.23f;
+  d.datas[1].addr = 0x2002;
+  d.datas[1].dis = 12.34f;
+  d.datas[2].addr = 0x2003;
+  d.datas[2].dis = -0.05f;
+  roundtrip_to_user(UB_MSG_TAG2ANCHOR_DIS, d);
+}
+
+TEST_CASE("round trip: tag2anchor_pdoa") {
+  UBDataTag2AnchorPdoa d{};
+  d.begin_time_us = 777888999;
+  d.time_slot_duration_us = 1000;
+  d.count = 2;
+  d.datas[0].addr = 0x2001;
+  d.datas[0].antenna_type = 1;
+  d.datas[0].pdoa_count = 2;
+  d.datas[0].pdoas[0] = 1.5f;
+  d.datas[0].pdoas[1] = -0.75f;
+  d.datas[1].addr = 0x2002;
+  d.datas[1].antenna_type = 0;
+  d.datas[1].pdoa_count = 0;
+  roundtrip_to_user(UB_MSG_TAG2ANCHOR_PDOA, d);
+}
+
+TEST_CASE("round trip: imu") {
+  UBDataImu d{};
+  d.local_time_us = 123;
+  d.gyro[0] = 0.01f;
+  d.gyro[1] = -0.02f;
+  d.gyro[2] = 0.03f;
+  d.acc[0] = 0.1f;
+  d.acc[1] = -0.2f;
+  d.acc[2] = 9.8f;
+  roundtrip_to_user(UB_MSG_IMU, d);
+}
+
+TEST_CASE("round trip: attitude") {
+  UBDataAttitude d{};
+  d.local_time_us = 456;
+  d.q[0] = 1.0f;
+  d.q[1] = 0.0f;
+  d.q[2] = 0.0f;
+  d.q[3] = 0.0f;
+  d.noise[0] = 0.01f;
+  d.noise[1] = 0.02f;
+  d.noise[2] = 0.03f;
+  roundtrip_to_user(UB_MSG_ATTITUDE, d);
 }
 
 TEST_CASE("round trip: z_measurement") {
@@ -232,9 +335,9 @@ TEST_CASE("round trip: anchor_pos") {
 // ============================================================
 
 TEST_CASE("scaling: heartbeat battery_voltage = _battery_voltage / 40") {
-  // 心跳线格式共 15 字节，最后一个字节是 _battery_voltage
-  std::vector<uint8_t> payload(15, 0);
-  payload[0] = 80;  // battery_percent=80, charging=0
+  // 心跳线格式共 16 字节，[14] 是 _battery_voltage
+  std::vector<uint8_t> payload(16, 0);
+  payload[0] = 80;   // battery_percent=80, charging=0
   payload[14] = 160; // 160 / 40 = 4.0V
   auto cap = parse_from_dev(make_up_frame(UB_MSG_HEARTBEAT, payload));
 
@@ -265,12 +368,14 @@ TEST_CASE("scaling: location_result rssi / rate") {
 }
 
 TEST_CASE("scaling: param z_noise / max_acceleration") {
-  std::vector<uint8_t> payload(18, 0);
+  std::vector<uint8_t> payload(29, 0);
   payload[8] = 10;  // _z_noise -> 10 * 0.01 = 0.1m
   payload[9] = 2;   // smooth_window = 2
   payload[10] = 30; // _max_acceleration[0] -> 30 * 0.02 = 0.6
   payload[11] = 30;
   payload[12] = 1; // -> 1 * 0.02 = 0.02
+  payload[26] = 3;    // static_map_id
+  payload[28] = 0x0A; // output_attitude | output_pdoa
   auto cap = parse_from_dev(make_up_frame(UB_MSG_PARAM, payload));
 
   REQUIRE(cap.msgs.size() == 1);
@@ -280,6 +385,67 @@ TEST_CASE("scaling: param z_noise / max_acceleration") {
   REQUIRE(d.smooth_window == 2);
   REQUIRE(d.max_acceleration[0] == Approx(0.6f));
   REQUIRE(d.max_acceleration[2] == Approx(0.02f));
+  REQUIRE(d.static_map_id == 3);
+  REQUIRE(d.output.imu == false);
+  REQUIRE(d.output.attitude == true);
+  REQUIRE(d.output.dis == false);
+  REQUIRE(d.output.pdoa == true);
+}
+
+TEST_CASE("param write fills hidden wire fields with firmware defaults") {
+  // 未公开的字段不能发 0：固件会把 expect_location_frequency=0 钳成 0.1Hz、
+  // 把 locate_with_all_maps=0 当作关闭。线格式：[0..3] expect_location_frequency，
+  // [25] bit0 locate_with_all_maps
+  UBDataParam d{};
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n =
+      ub_prepare_msg_to_dev(UB_MSG_WRITE_PARAM, &d, frame, sizeof(frame));
+  REQUIRE(n > 0);
+  // sof(1) + size(2) + frame_id(1) + msg id(1) + msg size(1) 之后是 payload
+  const uint8_t *payload = frame + 6;
+  float expect_location_frequency = 0;
+  std::memcpy(&expect_location_frequency, payload, sizeof(float));
+  REQUIRE(expect_location_frequency == Approx(1.0f));
+  REQUIRE((payload[25] & 0x01) == 0x01);
+}
+
+TEST_CASE("scaling: uwb_interface_param field positions") {
+  // 线格式 15 字节：
+  //   [0..1] reserved  [2] _max_rx_interval(50ms)  [3..4] min_tx_interval_ms
+  //   [5..6] reserved  [7..8] random_window_ms  [9..12] dis_frequency(float)
+  //   [13] dis_slot_count_max  [14] dis_remain_slot_count
+  std::vector<uint8_t> payload(15, 0);
+  payload[2] = 20;   // 20 * 50ms = 1.0s
+  payload[3] = 100;  // 100ms
+  payload[7] = 0x14; // 20ms
+  payload[13] = 6;
+  payload[14] = 1;
+  const float dis_frequency = 5.0f;
+  std::memcpy(&payload[9], &dis_frequency, sizeof(dis_frequency));
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_UWB_INTERFACE_PARAM, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d = *reinterpret_cast<const UBDataUwbInterfaceParam *>(
+      cap.msgs[0].data.data());
+  REQUIRE(d.max_rx_interval_ms == 1000);
+  REQUIRE(d.min_tx_interval_ms == 100);
+  REQUIRE(d.random_window_ms == 20);
+  REQUIRE(d.dis_frequency == Approx(5.0f));
+  REQUIRE(d.dis_slot_count_max == 6);
+  REQUIRE(d.dis_remain_slot_count == 1);
+}
+
+TEST_CASE("scaling: grouped signal time_slot_duration = raw * 20us") {
+  // Tag2AnchorDis 头部：[0..7] begin_time  [8] _time_slot_duration  [9] count:4
+  std::vector<uint8_t> payload(10, 0);
+  payload[8] = 50; // 50 * 20 = 1000us
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_TAG2ANCHOR_DIS, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d =
+      *reinterpret_cast<const UBDataTag2AnchorDis *>(cap.msgs[0].data.data());
+  REQUIRE(d.time_slot_duration_us == 1000);
+  REQUIRE(d.count == 0);
 }
 
 // ============================================================
@@ -570,6 +736,20 @@ TEST_CASE("downlink-only messages cannot be built as an uplink frame") {
                                  nullptr, frame, sizeof(frame)) < 0);
 }
 
+TEST_CASE("hardware/final peripheral config are read-only") {
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  UBDataPeripheralConfig d{};
+  // 只读配置没有 WRITE 消息，下行只能发读请求
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_HARDWARE_PERIPHERAL_CONFIG, &d, frame,
+                                sizeof(frame)) < 0);
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_FINAL_PERIPHERAL_CONFIG, &d, frame,
+                                sizeof(frame)) < 0);
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG, nullptr,
+                                frame, sizeof(frame)) > 0);
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_READ_FINAL_PERIPHERAL_CONFIG, nullptr,
+                                frame, sizeof(frame)) > 0);
+}
+
 TEST_CASE("read requests are downlink-only, empty, and decoded as such") {
   uint8_t frame[UB_FRAME_SIZE_MAX];
   const int n =
@@ -639,16 +819,16 @@ struct ExtData {
   int value;
 };
 
-int ext_encode_dev_to_user(ub_msg_id_t msg_id, const void *data, void *raw,
-                           int raw_size_max) {
-  if (msg_id != kExtMsgId || raw_size_max < 2) {
-    return -1;
+void ext_encode_dev_to_user(ub_msg_id_t msg_id, const void *data, void *raw,
+                            int *raw_size) {
+  if (msg_id != kExtMsgId) {
+    return; // 保持 *raw_size 为 -1，表示不认识
   }
   const auto v = static_cast<const ExtData *>(data)->value;
   auto *p = static_cast<uint8_t *>(raw);
   p[0] = static_cast<uint8_t>(v & 0xFF);
   p[1] = static_cast<uint8_t>((v >> 8) & 0xFF);
-  return 2;
+  *raw_size = 2;
 }
 
 int ext_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
@@ -720,7 +900,7 @@ TEST_CASE("injection is per direction") {
 TEST_CASE("extend hooks cannot override built-in messages") {
   // 钩子只在内建表未命中时才被调用：内建消息仍走内建实现
   ub_set_encode_dev_to_user_extend(
-      [](ub_msg_id_t, const void *, void *, int) { return 99; });
+      [](ub_msg_id_t, const void *, void *, int *raw_size) { *raw_size = 99; });
   UBDataFind find{};
   find.duration = 7;
   uint8_t frame[UB_FRAME_SIZE_MAX];

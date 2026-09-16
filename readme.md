@@ -262,12 +262,19 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | 同一份定位结果的标准消息，供 rviz 直接显示 |
 | `~/anchor_pos` | `AnchorPos` | 标签收到的信标坐标信息 |
 | `~/anchor_signal` | `AnchorSignal` | 每次定位对应的所有信标信号数据 |
+| `~/anchor2tag_signal` | `Anchor2TagSignal` | 每次收到参与定位的信标信号后输出的信号数据 |
+| `~/tag2anchor_dis` | `Tag2AnchorDis` | 标签与信标之间的测距结果 |
+| `~/tag2anchor_pdoa` | `Tag2AnchorPdoa` | 标签与信标之间的测角结果 |
 | `~/anchor_ddoas` | `AnchorDdoas` | 标签到信标间的距离差 |
+| `~/imu` | `Imu` | imu 原始数据 |
+| `~/attitude` | `Attitude` | 姿态四元数及噪声 |
 | `~/global_time_status` | `GlobalTimeStatus` | 全局时间同步状态 |
 | `~/heartbeat` | `Heartbeat` | 设备心跳/状态信息 |
 | `~/param` | `Param` | ROM 工作参数读取响应/当前参数 |
 | `~/run_time_param` | `RunTimeParam` | RAM 运行时参数 |
-| `~/interface_param` | `InterfaceParam` | 对外通信方式配置 |
+| `~/peripheral_config` | `PeripheralConfig` | 外设软件配置 |
+| `~/hardware_peripheral_config` | `PeripheralConfig` | 硬件电路指定的外设配置（只读） |
+| `~/final_peripheral_config` | `PeripheralConfig` | 软硬件合并后的最终外设启用情况（只读） |
 | `~/uart_interface_param` | `UartInterfaceParam` | 串口通信参数 |
 | `~/iic_interface_param` | `IicInterfaceParam` | iic 通信参数 |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | uwb 通信参数 |
@@ -288,7 +295,10 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/param_write` | `Param` | 写入 ROM 工作参数 |
 | `~/run_time_param_read` | `std_msgs/Empty` | 读取 RAM 运行时参数 |
 | `~/run_time_param_write` | `RunTimeParam` | 写入 RAM 运行时参数 |
-| `~/interface_param_read` | `std_msgs/Empty` | 读取对外通信方式配置 |
+| `~/peripheral_config_read` | `std_msgs/Empty` | 读取外设软件配置 |
+| `~/peripheral_config_write` | `PeripheralConfig` | 写入外设软件配置 |
+| `~/hardware_peripheral_config_read` | `std_msgs/Empty` | 读取硬件电路指定的外设配置 |
+| `~/final_peripheral_config_read` | `std_msgs/Empty` | 读取最终外设启用情况 |
 | `~/uart_interface_param_read` | `std_msgs/Empty` | 读取串口通信参数 |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | 读取 iic 通信参数 |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | 读取 uwb 通信参数 |

@@ -28,9 +28,9 @@ enum {
   UB_MSG_WRITE_PARAM = 61,           // v
   UB_MSG_PARAM = UB_MSG_WRITE_PARAM, // ^
 
-  UB_MSG_READ_INTERFACE_PARAM = 62,                      // v
-  UB_MSG_WRITE_INTERFACE_PARAM = 63,                     // v
-  UB_MSG_INTERFACE_PARAM = UB_MSG_WRITE_INTERFACE_PARAM, // ^
+  UB_MSG_READ_PERIPHERAL_CONFIG = 62,                        // v
+  UB_MSG_WRITE_PERIPHERAL_CONFIG = 63,                       // v
+  UB_MSG_PERIPHERAL_CONFIG = UB_MSG_WRITE_PERIPHERAL_CONFIG, // ^
 
   UB_MSG_READ_UART_INTERFACE_PARAM = 64,                           // v
   UB_MSG_WRITE_UART_INTERFACE_PARAM = 65,                          // v
@@ -50,6 +50,10 @@ enum {
 
   UB_MSG_USER_DATA = 81, // v^
 
+  UB_MSG_ANCHOR2TAG_SIGNAL = 89, // ^
+  UB_MSG_TAG2ANCHOR_DIS = 91,    // ^
+  UB_MSG_TAG2ANCHOR_PDOA = 92,   // ^
+
   UB_MSG_ANCHOR_SIGNAL = 96, // ^
 
   UB_MSG_READ_RUN_TIME_PARAM = 100,                    // v
@@ -62,14 +66,26 @@ enum {
 
   UB_MSG_ANCHOR_DDOAS = 104, // ^
 
+  UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG = 105, // v
+  UB_MSG_HARDWARE_PERIPHERAL_CONFIG = 106,      // ^
+  UB_MSG_READ_FINAL_PERIPHERAL_CONFIG = 107,    // v
+  UB_MSG_FINAL_PERIPHERAL_CONFIG = 108,         // ^
+
   UB_MSG_Z_MEASUREMENT = 111, // v^
 
   UB_MSG_STATE_CONTROL = 112,   // v^
   UB_MSG_MAP_MEASUREMENT = 113, // v^
+
+  UB_MSG_IMU = 115,      // ^
+  UB_MSG_ATTITUDE = 116, // ^
 };
 
 #define UB_LOCATION_RESULT_ANCHOR_MAX 9
 #define UB_ANCHOR_SIGNAL_DATA_MAX 9
+#define UB_ANCHOR2TAG_SIGNAL_DATA_MAX 9
+#define UB_TAG2ANCHOR_DIS_DATA_MAX 9
+#define UB_TAG2ANCHOR_PDOA_DATA_MAX 9
+#define UB_TAG2ANCHOR_PDOA_COUNT_MAX 4
 #define UB_ANCHOR_DDOAS_DATA_MAX 10
 #define UB_USER_DATA_PAYLOAD_MAX 64
 
@@ -114,13 +130,30 @@ typedef struct {
     bool tag_pos_even_error;
     // 输出信标间链路同步状态
     bool anchor_link_status;
+    // 输出 imu 原始数据
+    bool imu;
+    // 输出姿态数据
+    bool attitude;
+    // 输出标签到信标的测距结果
+    bool dis;
+    // 输出标签到信标的测角结果
+    bool pdoa;
   } output;
-  // 未收到信标信号时周期嗅探的默认占空比，1~100
+  // 未收到信标信号时周期嗅探的默认占空比，百分比 1~100
   uint8_t sniff_duty_cycle;
   // 前后两次更新的最大间隔时间 s
   uint8_t update_interval_max;
   // 前后两次更新超过此间隔将触发滤波重置 s
   uint16_t reset_interval;
+  // 收到信号的信标数量少于此值时启用嗅探
+  uint8_t min_sync_anchor_count;
+  // 嗅探占空比下限，百分比
+  // 0~100；非零表示即使已与足够多信标同步也周期嗅探，以便发现新信标
+  uint8_t min_sniff_duty_cycle;
+  // 定位结果中不再附带参与定位的信标列表（LocationResult.anchor_count 为 0）
+  bool disable_anchor_data_output_with_result;
+  // 标签固定在某个地图活动时可指定，避免受其他地图影响，0 表示不固定
+  uint8_t static_map_id;
 } UBDataParam;
 
 // RAM 运行时工作参数
@@ -155,14 +188,31 @@ typedef struct {
   } anchors[UB_LOCATION_RESULT_ANCHOR_MAX];
 } UBDataLocationResult;
 
-// ROM 标签对外通信方式软件配置
-// 最终启用情况由硬件 IO 配置与软件配置共同决定（或关系），保底启用 uwb
+// ROM 外设软件配置
+// 同一结构用于三个消息：PERIPHERAL_CONFIG 为软件配置（可读写），
+// HARDWARE_PERIPHERAL_CONFIG 为硬件电路指定的配置（只读），
+// FINAL_PERIPHERAL_CONFIG 为两者合并后的最终启用情况（只读）
 typedef struct {
+  // 通信接口
   bool uart;
   bool iic;
   bool uwb;
   bool ble;
-} UBDataInterfaceParam;
+  bool four_g;
+  // 软件配置的 priority 高于硬件配置时，软件配置完全覆盖硬件配置；
+  // 否则最终配置由软硬件配置共同决定（或关系），保底启用 uwb
+  bool priority;
+  // 外设
+  bool motor;
+  bool bee;
+  bool key;
+  bool motion;
+  bool battery;
+  bool battery_chargeable;
+  bool baro;
+  bool imu;
+  bool gnss;
+} UBDataPeripheralConfig;
 
 // ROM 串口通信参数
 typedef struct {
@@ -177,10 +227,20 @@ typedef struct {
 
 // ROM uwb 通信参数
 typedef struct {
-  // 发送信号的随机窗口，避免同时发送干扰
-  float random_window;
-  // 两次打开接收的最大间隔，0 表示不限制
-  float max_rx_interval;
+  // 发送信号的随机窗口 ms，避免同时发送干扰，0 表示不延迟立即发送，1~5000
+  uint16_t random_window_ms;
+  // 两次打开接收的最大间隔 ms，0 表示不限制，每次发送信号后都打开接收；50ms 分辨率，上限 12750
+  uint16_t max_rx_interval_ms;
+  // 标签数量较多、频率较高时，限制标签 uwb 回传的最小间隔 ms
+  uint16_t min_tx_interval_ms;
+  // 标签主动发起测距的频率 Hz
+  float dis_frequency;
+  // 标签主动发起测距允许的最大时隙数量，越大支持同时测距的信标越多但功耗越高，
+  // >0 表示启用测距，上限 18
+  uint8_t dis_slot_count_max;
+  // 末尾保留不分配的时隙数量，用于新信标随机接入，>=1，dis_slot_count_max>0
+  // 时有效
+  uint8_t dis_remain_slot_count;
 } UBDataUwbInterfaceParam;
 
 // ROM ble 通信参数
@@ -213,11 +273,23 @@ typedef struct {
   bool hardware_enabled_iic;
   bool hardware_enabled_uwb;
   bool hardware_enabled_ble;
+  bool hardware_enabled_four_g;
   uint8_t firmware_series;
   uint8_t firmware_version[4];
   uint8_t uid[UB_UID_SIZE];
   // 如使能电池，返回电压 V
   float battery_voltage;
+  // 近期 uwb 运行事件标志，用于诊断通信环境
+  // 收到 sts 校验错误的信号，通常来自非本系统（sts key 不匹配）
+  bool recent_rx_sts_error_occurred;
+  // 收到数据校验/解密错误的信号，通常来自非本系统
+  bool recent_rx_data_error_occurred;
+  // 全局时间同步后发生倒退，通常意味着全局时间同步不稳定
+  bool recent_global_time_error_occurred;
+  // 收到的其他节点全局时间不可靠
+  bool recent_peer_global_time_error_occurred;
+  // 收到的其他节点本地时间不可靠
+  bool recent_peer_local_time_error_occurred;
 } UBDataHeartbeat;
 
 // 用户数传
@@ -249,9 +321,15 @@ typedef struct {
   } datas[UB_ANCHOR_SIGNAL_DATA_MAX];
 } UBDataAnchorSignal;
 
+// 以下几个消息对应信标信号成组先后到达的一次定位/测距：
+// begin_time_us 为组内首个信号的时间，time_slot_duration_us
+// 为组内相邻信号的间隔， 第 i 个元素对应的信号时间 = begin_time_us + i *
+// time_slot_duration_us
+
 // 信标之间的距离差数据
 typedef struct {
-  ub_local_time_us_t local_time_us;
+  ub_local_time_us_t begin_time_us;
+  uint16_t time_slot_duration_us;
   // datas 中的有效元素数量
   uint8_t count;
   struct {
@@ -261,6 +339,73 @@ typedef struct {
     float ddoa;
   } datas[UB_ANCHOR_DDOAS_DATA_MAX];
 } UBDataAnchorDdoas;
+
+// 每次收到需要参与定位的信标信号后输出的信号数据
+typedef struct {
+  ub_local_time_us_t begin_time_us;
+  uint16_t time_slot_duration_us;
+  // datas 中的有效元素数量
+  uint8_t count;
+  struct {
+    ub_addr_t addr;
+    // 接收信号强度 dBm
+    float rx_rssi;
+    // 第一路径信号强度 dBm
+    float fp_rssi;
+    float uwb_clock_offset_ppm;
+    float mcu_clock_offset_ppm;
+    // 近期该信标信号的收包率 0~1
+    float rx_rate;
+  } datas[UB_ANCHOR2TAG_SIGNAL_DATA_MAX];
+} UBDataAnchor2TagSignal;
+
+// 标签与信标之间的测距结果
+typedef struct {
+  ub_local_time_us_t begin_time_us;
+  uint16_t time_slot_duration_us;
+  // datas 中的有效元素数量
+  uint8_t count;
+  struct {
+    ub_addr_t addr;
+    // m
+    float dis;
+  } datas[UB_TAG2ANCHOR_DIS_DATA_MAX];
+} UBDataTag2AnchorDis;
+
+// 标签与信标之间的测角结果
+typedef struct {
+  ub_local_time_us_t begin_time_us;
+  uint16_t time_slot_duration_us;
+  // datas 中的有效元素数量
+  uint8_t count;
+  struct {
+    ub_addr_t addr;
+    // 信标天线类型，0 为非阵列天线，不支持测角
+    uint8_t antenna_type;
+    // pdoas 中的有效元素数量
+    uint8_t pdoa_count;
+    // 相位差，量程 ±3.2767
+    float pdoas[UB_TAG2ANCHOR_PDOA_COUNT_MAX];
+  } datas[UB_TAG2ANCHOR_PDOA_DATA_MAX];
+} UBDataTag2AnchorPdoa;
+
+// imu 原始数据
+typedef struct {
+  ub_local_time_us_t local_time_us;
+  // 角速度 rad/s
+  float gyro[3];
+  // 加速度 m/s^2
+  float acc[3];
+} UBDataImu;
+
+// 姿态数据
+typedef struct {
+  ub_local_time_us_t local_time_us;
+  // 四元数 (w, x, y, z)
+  float q[4];
+  // 姿态噪声标准差 (roll, pitch, yaw) rad
+  float noise[3];
+} UBDataAttitude;
 
 // 用户有准确的标签 z 坐标时可通过此消息输入，可提升定位精度、降低地图切换延迟
 typedef struct {

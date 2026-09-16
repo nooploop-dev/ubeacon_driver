@@ -88,9 +88,12 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataParam, ub_data_param_to_raw, UBDataParam);
     break;
-  case UB_MSG_INTERFACE_PARAM:
-    UB_MSG_DATA_ENCODE(UBRawDataInterfaceParam, ub_data_interface_param_to_raw,
-                       UBDataInterfaceParam);
+  case UB_MSG_PERIPHERAL_CONFIG:
+  case UB_MSG_HARDWARE_PERIPHERAL_CONFIG:
+  case UB_MSG_FINAL_PERIPHERAL_CONFIG:
+    UB_MSG_DATA_ENCODE(UBRawDataPeripheralConfig,
+                       ub_data_peripheral_config_to_raw,
+                       UBDataPeripheralConfig);
     break;
   case UB_MSG_UART_INTERFACE_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataUartInterfaceParam,
@@ -122,6 +125,26 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_ANCHOR_SIGNAL:
     UB_MSG_DATA_ENCODE(UBRawDataAnchorSignal, ub_data_anchor_signal_to_raw,
                        UBDataAnchorSignal);
+    break;
+  case UB_MSG_ANCHOR2TAG_SIGNAL:
+    UB_MSG_DATA_ENCODE(UBRawDataAnchor2TagSignal,
+                       ub_data_anchor2tag_signal_to_raw,
+                       UBDataAnchor2TagSignal);
+    break;
+  case UB_MSG_TAG2ANCHOR_DIS:
+    UB_MSG_DATA_ENCODE(UBRawDataTag2AnchorDis, ub_data_tag2anchor_dis_to_raw,
+                       UBDataTag2AnchorDis);
+    break;
+  case UB_MSG_TAG2ANCHOR_PDOA:
+    UB_MSG_DATA_ENCODE(UBRawDataTag2AnchorPdoa, ub_data_tag2anchor_pdoa_to_raw,
+                       UBDataTag2AnchorPdoa);
+    break;
+  case UB_MSG_IMU:
+    UB_MSG_DATA_ENCODE(UBRawDataImu, ub_data_imu_to_raw, UBDataImu);
+    break;
+  case UB_MSG_ATTITUDE:
+    UB_MSG_DATA_ENCODE(UBRawDataAttitude, ub_data_attitude_to_raw,
+                       UBDataAttitude);
     break;
   case UB_MSG_RUN_TIME_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataRunTimeParam, ub_data_run_time_param_to_raw,
@@ -173,7 +196,9 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
 
   switch (msg_id) {
   case UB_MSG_READ_PARAM:
-  case UB_MSG_READ_INTERFACE_PARAM:
+  case UB_MSG_READ_PERIPHERAL_CONFIG:
+  case UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG:
+  case UB_MSG_READ_FINAL_PERIPHERAL_CONFIG:
   case UB_MSG_READ_UART_INTERFACE_PARAM:
   case UB_MSG_READ_IIC_INTERFACE_PARAM:
   case UB_MSG_READ_UWB_INTERFACE_PARAM:
@@ -191,9 +216,10 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_WRITE_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataParam, ub_data_param_to_raw, UBDataParam);
     break;
-  case UB_MSG_WRITE_INTERFACE_PARAM:
-    UB_MSG_DATA_ENCODE(UBRawDataInterfaceParam, ub_data_interface_param_to_raw,
-                       UBDataInterfaceParam);
+  case UB_MSG_WRITE_PERIPHERAL_CONFIG:
+    UB_MSG_DATA_ENCODE(UBRawDataPeripheralConfig,
+                       ub_data_peripheral_config_to_raw,
+                       UBDataPeripheralConfig);
     break;
   case UB_MSG_WRITE_UART_INTERFACE_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataUartInterfaceParam,
@@ -273,9 +299,12 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataParam, ub_data_param_from_raw, UBDataParam);
     break;
-  case UB_MSG_INTERFACE_PARAM:
-    UB_MSG_DATA_DECODE(UBRawDataInterfaceParam,
-                       ub_data_interface_param_from_raw, UBDataInterfaceParam);
+  case UB_MSG_PERIPHERAL_CONFIG:
+  case UB_MSG_HARDWARE_PERIPHERAL_CONFIG:
+  case UB_MSG_FINAL_PERIPHERAL_CONFIG:
+    UB_MSG_DATA_DECODE(UBRawDataPeripheralConfig,
+                       ub_data_peripheral_config_from_raw,
+                       UBDataPeripheralConfig);
     break;
   case UB_MSG_UART_INTERFACE_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataUartInterfaceParam,
@@ -307,6 +336,26 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_ANCHOR_SIGNAL:
     UB_MSG_DATA_DECODE(UBRawDataAnchorSignal, ub_data_anchor_signal_from_raw,
                        UBDataAnchorSignal);
+    break;
+  case UB_MSG_ANCHOR2TAG_SIGNAL:
+    UB_MSG_DATA_DECODE(UBRawDataAnchor2TagSignal,
+                       ub_data_anchor2tag_signal_from_raw,
+                       UBDataAnchor2TagSignal);
+    break;
+  case UB_MSG_TAG2ANCHOR_DIS:
+    UB_MSG_DATA_DECODE(UBRawDataTag2AnchorDis, ub_data_tag2anchor_dis_from_raw,
+                       UBDataTag2AnchorDis);
+    break;
+  case UB_MSG_TAG2ANCHOR_PDOA:
+    UB_MSG_DATA_DECODE(UBRawDataTag2AnchorPdoa,
+                       ub_data_tag2anchor_pdoa_from_raw, UBDataTag2AnchorPdoa);
+    break;
+  case UB_MSG_IMU:
+    UB_MSG_DATA_DECODE(UBRawDataImu, ub_data_imu_from_raw, UBDataImu);
+    break;
+  case UB_MSG_ATTITUDE:
+    UB_MSG_DATA_DECODE(UBRawDataAttitude, ub_data_attitude_from_raw,
+                       UBDataAttitude);
     break;
   case UB_MSG_RUN_TIME_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataRunTimeParam, ub_data_run_time_param_from_raw,
@@ -353,7 +402,9 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
 
   switch (msg_id) {
   case UB_MSG_READ_PARAM:
-  case UB_MSG_READ_INTERFACE_PARAM:
+  case UB_MSG_READ_PERIPHERAL_CONFIG:
+  case UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG:
+  case UB_MSG_READ_FINAL_PERIPHERAL_CONFIG:
   case UB_MSG_READ_UART_INTERFACE_PARAM:
   case UB_MSG_READ_IIC_INTERFACE_PARAM:
   case UB_MSG_READ_UWB_INTERFACE_PARAM:
@@ -371,9 +422,10 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_WRITE_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataParam, ub_data_param_from_raw, UBDataParam);
     break;
-  case UB_MSG_WRITE_INTERFACE_PARAM:
-    UB_MSG_DATA_DECODE(UBRawDataInterfaceParam,
-                       ub_data_interface_param_from_raw, UBDataInterfaceParam);
+  case UB_MSG_WRITE_PERIPHERAL_CONFIG:
+    UB_MSG_DATA_DECODE(UBRawDataPeripheralConfig,
+                       ub_data_peripheral_config_from_raw,
+                       UBDataPeripheralConfig);
     break;
   case UB_MSG_WRITE_UART_INTERFACE_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataUartInterfaceParam,

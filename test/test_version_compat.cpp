@@ -8,7 +8,7 @@
 
 using Catch::Approx;
 
-// 心跳线格式共 15 字节：
+// 心跳线格式共 16 字节：
 //   [0] battery_percent:7 | battery_charging:1
 //   [1] need_restart / reset_info_dirty / assert_info_dirty / restart_cnt:3 / is_sleeping
 //   [2] hardware_enabled_*
@@ -16,7 +16,8 @@ using Catch::Approx;
 //   [4..7]  firmware_version[4]
 //   [8..13] uid[6]
 //   [14] _battery_voltage
-static constexpr int kHeartbeatRawSize = 15;
+//   [15] recent_*_error_occurred
+static constexpr int kHeartbeatRawSize = 16;
 
 TEST_CASE("old firmware: short payload is zero-filled") {
   // 只发前 4 个字节，尾部字段（版本号、uid、电压）应被补零而不是读到脏数据
@@ -64,6 +65,23 @@ TEST_CASE("new firmware: extra trailing bytes are truncated") {
   REQUIRE(d.battery_percent == 80);
   REQUIRE(d.firmware_series == 7);
   REQUIRE(d.battery_voltage == Approx(4.0f));
+}
+
+TEST_CASE("old firmware: 18-byte LocationParam decodes, new fields zeroed") {
+  // 旧固件的 LocationParam 到 reset_interval 为止共 18 字节
+  std::vector<uint8_t> payload(18, 0);
+  payload[9] = 2;    // smooth_window
+  payload[16] = 0xB8; // reset_interval = 3000
+  payload[17] = 0x0B;
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_PARAM, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d =
+      *reinterpret_cast<const UBDataParam *>(cap.msgs[0].data.data());
+  REQUIRE(d.smooth_window == 2);
+  REQUIRE(d.reset_interval == 3000);
+  REQUIRE(d.static_map_id == 0);
+  REQUIRE(d.output.attitude == false);
 }
 
 TEST_CASE("empty payload on a data message decodes to a zeroed struct") {

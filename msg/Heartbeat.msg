@@ -9,7 +9,14 @@ bool hardware_enabled_uart
 bool hardware_enabled_iic
 bool hardware_enabled_uwb
 bool hardware_enabled_ble
+bool hardware_enabled_four_g
 uint8 firmware_series
 uint8[4] firmware_version
 uint8[6] uid
 float32 battery_voltage  # V
+# 近期 uwb 运行事件标志
+bool recent_rx_sts_error_occurred
+bool recent_rx_data_error_occurred
+bool recent_global_time_error_occurred
+bool recent_peer_global_time_error_occurred
+bool recent_peer_local_time_error_occurred

@@ -91,20 +91,28 @@ if(UB_BUILD_ROS1)
             AnchorDdoas.msg
             AnchorPos.msg
             AnchorSignal.msg
-            AnchorSignalData.msg
+            AnchorSignalItem.msg
+            Anchor2TagSignal.msg
+            Anchor2TagSignalItem.msg
+            Attitude.msg
             BleInterfaceParam.msg
             Find.msg
             GlobalTimeStatus.msg
             Heartbeat.msg
             IicInterfaceParam.msg
-            InterfaceParam.msg
+            Imu.msg
             LocationAnchor.msg
             LocationResult.msg
             MapMeasurement.msg
             Param.msg
+            PeripheralConfig.msg
             Restart.msg
             RunTimeParam.msg
             StateControl.msg
+            Tag2AnchorDis.msg
+            Tag2AnchorDisItem.msg
+            Tag2AnchorPdoa.msg
+            Tag2AnchorPdoaItem.msg
             UartInterfaceParam.msg
             UserData.msg
             UwbInterfaceParam.msg
@@ -126,20 +134,28 @@ if(UB_BUILD_ROS2)
             "msg/AnchorDdoas.msg"
             "msg/AnchorPos.msg"
             "msg/AnchorSignal.msg"
-            "msg/AnchorSignalData.msg"
+            "msg/AnchorSignalItem.msg"
+            "msg/Anchor2TagSignal.msg"
+            "msg/Anchor2TagSignalItem.msg"
+            "msg/Attitude.msg"
             "msg/BleInterfaceParam.msg"
             "msg/Find.msg"
             "msg/GlobalTimeStatus.msg"
             "msg/Heartbeat.msg"
             "msg/IicInterfaceParam.msg"
-            "msg/InterfaceParam.msg"
+            "msg/Imu.msg"
             "msg/LocationAnchor.msg"
             "msg/LocationResult.msg"
             "msg/MapMeasurement.msg"
             "msg/Param.msg"
+            "msg/PeripheralConfig.msg"
             "msg/Restart.msg"
             "msg/RunTimeParam.msg"
             "msg/StateControl.msg"
+            "msg/Tag2AnchorDis.msg"
+            "msg/Tag2AnchorDisItem.msg"
+            "msg/Tag2AnchorPdoa.msg"
+            "msg/Tag2AnchorPdoaItem.msg"
             "msg/UartInterfaceParam.msg"
             "msg/UserData.msg"
             "msg/UwbInterfaceParam.msg"

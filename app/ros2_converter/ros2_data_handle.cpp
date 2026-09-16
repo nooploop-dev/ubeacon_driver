@@ -26,6 +26,18 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
   anchor_signal_pub_ =
       node_->create_publisher<ubeacon_driver::msg::AnchorSignal>(
           "~/anchor_signal", 50);
+  anchor2tag_signal_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::Anchor2TagSignal>(
+          "~/anchor2tag_signal", 50);
+  tag2anchor_dis_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::Tag2AnchorDis>(
+          "~/tag2anchor_dis", 50);
+  tag2anchor_pdoa_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::Tag2AnchorPdoa>(
+          "~/tag2anchor_pdoa", 50);
+  imu_pub_ = node_->create_publisher<ubeacon_driver::msg::Imu>("~/imu", 50);
+  attitude_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::Attitude>("~/attitude", 50);
   anchor_ddoas_pub_ = node_->create_publisher<ubeacon_driver::msg::AnchorDdoas>(
       "~/anchor_ddoas", 50);
   anchor_pos_pub_ = node_->create_publisher<ubeacon_driver::msg::AnchorPos>(
@@ -41,9 +53,15 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
   run_time_param_pub_ =
       node_->create_publisher<ubeacon_driver::msg::RunTimeParam>(
           "~/run_time_param", 50);
-  interface_param_pub_ =
-      node_->create_publisher<ubeacon_driver::msg::InterfaceParam>(
-          "~/interface_param", 50);
+  peripheral_config_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::PeripheralConfig>(
+          "~/peripheral_config", 50);
+  hardware_peripheral_config_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::PeripheralConfig>(
+          "~/hardware_peripheral_config", 50);
+  final_peripheral_config_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::PeripheralConfig>(
+          "~/final_peripheral_config", 50);
   uart_interface_param_pub_ =
       node_->create_publisher<ubeacon_driver::msg::UartInterfaceParam>(
           "~/uart_interface_param", 50);
@@ -90,9 +108,24 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
       node_->create_subscription<ubeacon_driver::msg::RunTimeParam>(
           "~/run_time_param_write", 50,
           std::bind(&Ros2DataHandle::on_run_time_param_write, this, _1));
-  interface_param_read_sub_ = node_->create_subscription<std_msgs::msg::Empty>(
-      "~/interface_param_read", 50,
-      std::bind(&Ros2DataHandle::on_interface_param_read, this, _1));
+  peripheral_config_read_sub_ =
+      node_->create_subscription<std_msgs::msg::Empty>(
+          "~/peripheral_config_read", 50,
+          std::bind(&Ros2DataHandle::on_peripheral_config_read, this, _1));
+  peripheral_config_write_sub_ =
+      node_->create_subscription<ubeacon_driver::msg::PeripheralConfig>(
+          "~/peripheral_config_write", 50,
+          std::bind(&Ros2DataHandle::on_peripheral_config_write, this, _1));
+  hardware_peripheral_config_read_sub_ =
+      node_->create_subscription<std_msgs::msg::Empty>(
+          "~/hardware_peripheral_config_read", 50,
+          std::bind(&Ros2DataHandle::on_hardware_peripheral_config_read, this,
+                    _1));
+  final_peripheral_config_read_sub_ =
+      node_->create_subscription<std_msgs::msg::Empty>(
+          "~/final_peripheral_config_read", 50,
+          std::bind(&Ros2DataHandle::on_final_peripheral_config_read, this,
+                    _1));
   uart_interface_param_read_sub_ =
       node_->create_subscription<std_msgs::msg::Empty>(
           "~/uart_interface_param_read", 50,
@@ -156,11 +189,20 @@ void Ros2DataHandle::dispatch(const UBDataHeartbeat &data) {
   msg.hardware_enabled_iic = data.hardware_enabled_iic;
   msg.hardware_enabled_uwb = data.hardware_enabled_uwb;
   msg.hardware_enabled_ble = data.hardware_enabled_ble;
+  msg.hardware_enabled_four_g = data.hardware_enabled_four_g;
   msg.firmware_series = data.firmware_series;
   std::memcpy(msg.firmware_version.data(), data.firmware_version,
               sizeof(data.firmware_version));
   std::memcpy(msg.uid.data(), data.uid, UB_UID_SIZE);
   msg.battery_voltage = data.battery_voltage;
+  msg.recent_rx_sts_error_occurred = data.recent_rx_sts_error_occurred;
+  msg.recent_rx_data_error_occurred = data.recent_rx_data_error_occurred;
+  msg.recent_global_time_error_occurred =
+      data.recent_global_time_error_occurred;
+  msg.recent_peer_global_time_error_occurred =
+      data.recent_peer_global_time_error_occurred;
+  msg.recent_peer_local_time_error_occurred =
+      data.recent_peer_local_time_error_occurred;
   heartbeat_pub_->publish(msg);
 }
 
@@ -183,9 +225,52 @@ void Ros2DataHandle::dispatch(const UBDataAnchorSignal &data) {
   anchor_signal_pub_->publish(msg);
 }
 
+void Ros2DataHandle::dispatch(const UBDataAnchor2TagSignal &data) {
+  ubeacon_driver::msg::Anchor2TagSignal msg;
+  msg.begin_time_us = data.begin_time_us;
+  msg.time_slot_duration_us = data.time_slot_duration_us;
+  msg.datas.resize(data.count);
+  for (int i = 0; i < data.count; i++) {
+    msg.datas[i].addr = data.datas[i].addr;
+    msg.datas[i].rx_rssi = data.datas[i].rx_rssi;
+    msg.datas[i].fp_rssi = data.datas[i].fp_rssi;
+    msg.datas[i].uwb_clock_offset_ppm = data.datas[i].uwb_clock_offset_ppm;
+    msg.datas[i].mcu_clock_offset_ppm = data.datas[i].mcu_clock_offset_ppm;
+    msg.datas[i].rx_rate = data.datas[i].rx_rate;
+  }
+  anchor2tag_signal_pub_->publish(msg);
+}
+
+void Ros2DataHandle::dispatch(const UBDataTag2AnchorDis &data) {
+  ubeacon_driver::msg::Tag2AnchorDis msg;
+  msg.begin_time_us = data.begin_time_us;
+  msg.time_slot_duration_us = data.time_slot_duration_us;
+  msg.datas.resize(data.count);
+  for (int i = 0; i < data.count; i++) {
+    msg.datas[i].addr = data.datas[i].addr;
+    msg.datas[i].dis = data.datas[i].dis;
+  }
+  tag2anchor_dis_pub_->publish(msg);
+}
+
+void Ros2DataHandle::dispatch(const UBDataTag2AnchorPdoa &data) {
+  ubeacon_driver::msg::Tag2AnchorPdoa msg;
+  msg.begin_time_us = data.begin_time_us;
+  msg.time_slot_duration_us = data.time_slot_duration_us;
+  msg.datas.resize(data.count);
+  for (int i = 0; i < data.count; i++) {
+    const auto &d = data.datas[i];
+    msg.datas[i].addr = d.addr;
+    msg.datas[i].antenna_type = d.antenna_type;
+    msg.datas[i].pdoas.assign(d.pdoas, d.pdoas + d.pdoa_count);
+  }
+  tag2anchor_pdoa_pub_->publish(msg);
+}
+
 void Ros2DataHandle::dispatch(const UBDataAnchorDdoas &data) {
   ubeacon_driver::msg::AnchorDdoas msg;
-  msg.local_time_us = data.local_time_us;
+  msg.begin_time_us = data.begin_time_us;
+  msg.time_slot_duration_us = data.time_slot_duration_us;
   msg.datas.resize(data.count);
   for (int i = 0; i < data.count; i++) {
     msg.datas[i].a0 = data.datas[i].a0;
@@ -224,6 +309,28 @@ void Ros2DataHandle::dispatch(const UBDataUserData &data) {
   user_data_from_device_pub_->publish(msg);
 }
 
+void Ros2DataHandle::dispatch(const UBDataImu &data) {
+  ubeacon_driver::msg::Imu msg;
+  msg.local_time_us = data.local_time_us;
+  for (int i = 0; i < 3; i++) {
+    msg.gyro[i] = data.gyro[i];
+    msg.acc[i] = data.acc[i];
+  }
+  imu_pub_->publish(msg);
+}
+
+void Ros2DataHandle::dispatch(const UBDataAttitude &data) {
+  ubeacon_driver::msg::Attitude msg;
+  msg.local_time_us = data.local_time_us;
+  for (int i = 0; i < 4; i++) {
+    msg.q[i] = data.q[i];
+  }
+  for (int i = 0; i < 3; i++) {
+    msg.noise[i] = data.noise[i];
+  }
+  attitude_pub_->publish(msg);
+}
+
 void Ros2DataHandle::dispatch(const UBDataParam &data) {
   ubeacon_driver::msg::Param msg;
   msg.expect_z = data.expect_z;
@@ -240,9 +347,18 @@ void Ros2DataHandle::dispatch(const UBDataParam &data) {
   msg.output_anchor_ddoa = data.output.anchor_ddoa;
   msg.output_tag_pos_even_error = data.output.tag_pos_even_error;
   msg.output_anchor_link_status = data.output.anchor_link_status;
+  msg.output_imu = data.output.imu;
+  msg.output_attitude = data.output.attitude;
+  msg.output_dis = data.output.dis;
+  msg.output_pdoa = data.output.pdoa;
   msg.sniff_duty_cycle = data.sniff_duty_cycle;
   msg.update_interval_max = data.update_interval_max;
   msg.reset_interval = data.reset_interval;
+  msg.min_sync_anchor_count = data.min_sync_anchor_count;
+  msg.min_sniff_duty_cycle = data.min_sniff_duty_cycle;
+  msg.disable_anchor_data_output_with_result =
+      data.disable_anchor_data_output_with_result;
+  msg.static_map_id = data.static_map_id;
   param_pub_->publish(msg);
 }
 
@@ -252,13 +368,35 @@ void Ros2DataHandle::dispatch(const UBDataRunTimeParam &data) {
   run_time_param_pub_->publish(msg);
 }
 
-void Ros2DataHandle::dispatch(const UBDataInterfaceParam &data) {
-  ubeacon_driver::msg::InterfaceParam msg;
+void Ros2DataHandle::dispatch(ub_msg_id_t msg_id,
+                              const UBDataPeripheralConfig &data) {
+  ubeacon_driver::msg::PeripheralConfig msg;
   msg.uart = data.uart;
   msg.iic = data.iic;
   msg.uwb = data.uwb;
   msg.ble = data.ble;
-  interface_param_pub_->publish(msg);
+  msg.four_g = data.four_g;
+  msg.priority = data.priority;
+  msg.motor = data.motor;
+  msg.bee = data.bee;
+  msg.key = data.key;
+  msg.motion = data.motion;
+  msg.battery = data.battery;
+  msg.battery_chargeable = data.battery_chargeable;
+  msg.baro = data.baro;
+  msg.imu = data.imu;
+  msg.gnss = data.gnss;
+  switch (msg_id) {
+  case UB_MSG_HARDWARE_PERIPHERAL_CONFIG:
+    hardware_peripheral_config_pub_->publish(msg);
+    break;
+  case UB_MSG_FINAL_PERIPHERAL_CONFIG:
+    final_peripheral_config_pub_->publish(msg);
+    break;
+  default:
+    peripheral_config_pub_->publish(msg);
+    break;
+  }
 }
 
 void Ros2DataHandle::dispatch(const UBDataUartInterfaceParam &data) {
@@ -275,8 +413,12 @@ void Ros2DataHandle::dispatch(const UBDataIicInterfaceParam &data) {
 
 void Ros2DataHandle::dispatch(const UBDataUwbInterfaceParam &data) {
   ubeacon_driver::msg::UwbInterfaceParam msg;
-  msg.random_window = data.random_window;
-  msg.max_rx_interval = data.max_rx_interval;
+  msg.random_window_ms = data.random_window_ms;
+  msg.max_rx_interval_ms = data.max_rx_interval_ms;
+  msg.min_tx_interval_ms = data.min_tx_interval_ms;
+  msg.dis_frequency = data.dis_frequency;
+  msg.dis_slot_count_max = data.dis_slot_count_max;
+  msg.dis_remain_slot_count = data.dis_remain_slot_count;
   uwb_interface_param_pub_->publish(msg);
 }
 
@@ -361,9 +503,18 @@ void Ros2DataHandle::on_param_write(
   data.output.anchor_ddoa = msg->output_anchor_ddoa;
   data.output.tag_pos_even_error = msg->output_tag_pos_even_error;
   data.output.anchor_link_status = msg->output_anchor_link_status;
+  data.output.imu = msg->output_imu;
+  data.output.attitude = msg->output_attitude;
+  data.output.dis = msg->output_dis;
+  data.output.pdoa = msg->output_pdoa;
   data.sniff_duty_cycle = msg->sniff_duty_cycle;
   data.update_interval_max = msg->update_interval_max;
   data.reset_interval = msg->reset_interval;
+  data.min_sync_anchor_count = msg->min_sync_anchor_count;
+  data.min_sniff_duty_cycle = msg->min_sniff_duty_cycle;
+  data.disable_anchor_data_output_with_result =
+      msg->disable_anchor_data_output_with_result;
+  data.static_map_id = msg->static_map_id;
   main_common_send_msg(UB_MSG_WRITE_PARAM, &data, sizeof(data));
 }
 
@@ -380,10 +531,43 @@ void Ros2DataHandle::on_run_time_param_write(
   main_common_send_msg(UB_MSG_WRITE_RUN_TIME_PARAM, &data, sizeof(data));
 }
 
-void Ros2DataHandle::on_interface_param_read(
+void Ros2DataHandle::on_peripheral_config_read(
     const std_msgs::msg::Empty::SharedPtr msg) {
   (void)msg;
-  main_common_send_msg(UB_MSG_READ_INTERFACE_PARAM, nullptr, 0);
+  main_common_send_msg(UB_MSG_READ_PERIPHERAL_CONFIG, nullptr, 0);
+}
+
+void Ros2DataHandle::on_peripheral_config_write(
+    const ubeacon_driver::msg::PeripheralConfig::SharedPtr msg) {
+  UBDataPeripheralConfig data{};
+  data.uart = msg->uart;
+  data.iic = msg->iic;
+  data.uwb = msg->uwb;
+  data.ble = msg->ble;
+  data.four_g = msg->four_g;
+  data.priority = msg->priority;
+  data.motor = msg->motor;
+  data.bee = msg->bee;
+  data.key = msg->key;
+  data.motion = msg->motion;
+  data.battery = msg->battery;
+  data.battery_chargeable = msg->battery_chargeable;
+  data.baro = msg->baro;
+  data.imu = msg->imu;
+  data.gnss = msg->gnss;
+  main_common_send_msg(UB_MSG_WRITE_PERIPHERAL_CONFIG, &data, sizeof(data));
+}
+
+void Ros2DataHandle::on_hardware_peripheral_config_read(
+    const std_msgs::msg::Empty::SharedPtr msg) {
+  (void)msg;
+  main_common_send_msg(UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG, nullptr, 0);
+}
+
+void Ros2DataHandle::on_final_peripheral_config_read(
+    const std_msgs::msg::Empty::SharedPtr msg) {
+  (void)msg;
+  main_common_send_msg(UB_MSG_READ_FINAL_PERIPHERAL_CONFIG, nullptr, 0);
 }
 
 void Ros2DataHandle::on_uart_interface_param_read(
@@ -428,6 +612,21 @@ void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
   case UB_MSG_ANCHOR_SIGNAL:
     self->dispatch(*static_cast<const UBDataAnchorSignal *>(data));
     break;
+  case UB_MSG_ANCHOR2TAG_SIGNAL:
+    self->dispatch(*static_cast<const UBDataAnchor2TagSignal *>(data));
+    break;
+  case UB_MSG_TAG2ANCHOR_DIS:
+    self->dispatch(*static_cast<const UBDataTag2AnchorDis *>(data));
+    break;
+  case UB_MSG_TAG2ANCHOR_PDOA:
+    self->dispatch(*static_cast<const UBDataTag2AnchorPdoa *>(data));
+    break;
+  case UB_MSG_IMU:
+    self->dispatch(*static_cast<const UBDataImu *>(data));
+    break;
+  case UB_MSG_ATTITUDE:
+    self->dispatch(*static_cast<const UBDataAttitude *>(data));
+    break;
   case UB_MSG_ANCHOR_DDOAS:
     self->dispatch(*static_cast<const UBDataAnchorDdoas *>(data));
     break;
@@ -446,8 +645,11 @@ void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
   case UB_MSG_RUN_TIME_PARAM:
     self->dispatch(*static_cast<const UBDataRunTimeParam *>(data));
     break;
-  case UB_MSG_INTERFACE_PARAM:
-    self->dispatch(*static_cast<const UBDataInterfaceParam *>(data));
+  case UB_MSG_PERIPHERAL_CONFIG:
+  case UB_MSG_HARDWARE_PERIPHERAL_CONFIG:
+  case UB_MSG_FINAL_PERIPHERAL_CONFIG:
+    self->dispatch(msg_id,
+                   *static_cast<const UBDataPeripheralConfig *>(data));
     break;
   case UB_MSG_UART_INTERFACE_PARAM:
     self->dispatch(*static_cast<const UBDataUartInterfaceParam *>(data));

@@ -4,21 +4,26 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <ros/ros.h>
 #include <std_msgs/Empty.h>
+#include <ubeacon_driver/Anchor2TagSignal.h>
 #include <ubeacon_driver/AnchorDdoas.h>
 #include <ubeacon_driver/AnchorPos.h>
 #include <ubeacon_driver/AnchorSignal.h>
+#include <ubeacon_driver/Attitude.h>
 #include <ubeacon_driver/BleInterfaceParam.h>
 #include <ubeacon_driver/Find.h>
 #include <ubeacon_driver/GlobalTimeStatus.h>
 #include <ubeacon_driver/Heartbeat.h>
 #include <ubeacon_driver/IicInterfaceParam.h>
-#include <ubeacon_driver/InterfaceParam.h>
+#include <ubeacon_driver/Imu.h>
 #include <ubeacon_driver/LocationResult.h>
 #include <ubeacon_driver/MapMeasurement.h>
 #include <ubeacon_driver/Param.h>
+#include <ubeacon_driver/PeripheralConfig.h>
 #include <ubeacon_driver/Restart.h>
 #include <ubeacon_driver/RunTimeParam.h>
 #include <ubeacon_driver/StateControl.h>
+#include <ubeacon_driver/Tag2AnchorDis.h>
+#include <ubeacon_driver/Tag2AnchorPdoa.h>
 #include <ubeacon_driver/UartInterfaceParam.h>
 #include <ubeacon_driver/UserData.h>
 #include <ubeacon_driver/UwbInterfaceParam.h>
@@ -38,13 +43,19 @@ private:
   void dispatch(const UBDataLocationResult &data);
   void dispatch(const UBDataHeartbeat &data);
   void dispatch(const UBDataAnchorSignal &data);
+  void dispatch(const UBDataAnchor2TagSignal &data);
+  void dispatch(const UBDataTag2AnchorDis &data);
+  void dispatch(const UBDataTag2AnchorPdoa &data);
   void dispatch(const UBDataAnchorDdoas &data);
   void dispatch(const UBDataAnchorPos &data);
   void dispatch(const UBDataGlobalTimeStatus &data);
   void dispatch(const UBDataUserData &data);
+  void dispatch(const UBDataImu &data);
+  void dispatch(const UBDataAttitude &data);
   void dispatch(const UBDataParam &data);
   void dispatch(const UBDataRunTimeParam &data);
-  void dispatch(const UBDataInterfaceParam &data);
+  // 软件/硬件/最终三份外设配置共用同一结构，按 msg_id 选择发布者
+  void dispatch(ub_msg_id_t msg_id, const UBDataPeripheralConfig &data);
   void dispatch(const UBDataUartInterfaceParam &data);
   void dispatch(const UBDataIicInterfaceParam &data);
   void dispatch(const UBDataUwbInterfaceParam &data);
@@ -61,7 +72,12 @@ private:
   void on_param_write(const ubeacon_driver::Param::ConstPtr &msg);
   void on_run_time_param_read(const std_msgs::Empty::ConstPtr &msg);
   void on_run_time_param_write(const ubeacon_driver::RunTimeParam::ConstPtr &msg);
-  void on_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
+  void on_peripheral_config_read(const std_msgs::Empty::ConstPtr &msg);
+  void on_peripheral_config_write(
+      const ubeacon_driver::PeripheralConfig::ConstPtr &msg);
+  void
+  on_hardware_peripheral_config_read(const std_msgs::Empty::ConstPtr &msg);
+  void on_final_peripheral_config_read(const std_msgs::Empty::ConstPtr &msg);
   void on_uart_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
   void on_iic_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
   void on_uwb_interface_param_read(const std_msgs::Empty::ConstPtr &msg);
@@ -75,13 +91,20 @@ private:
   ros::Publisher location_result_pose_pub_;
   ros::Publisher heartbeat_pub_;
   ros::Publisher anchor_signal_pub_;
+  ros::Publisher anchor2tag_signal_pub_;
+  ros::Publisher tag2anchor_dis_pub_;
+  ros::Publisher tag2anchor_pdoa_pub_;
+  ros::Publisher imu_pub_;
+  ros::Publisher attitude_pub_;
   ros::Publisher anchor_ddoas_pub_;
   ros::Publisher anchor_pos_pub_;
   ros::Publisher global_time_status_pub_;
   ros::Publisher user_data_from_device_pub_;
   ros::Publisher param_pub_;
   ros::Publisher run_time_param_pub_;
-  ros::Publisher interface_param_pub_;
+  ros::Publisher peripheral_config_pub_;
+  ros::Publisher hardware_peripheral_config_pub_;
+  ros::Publisher final_peripheral_config_pub_;
   ros::Publisher uart_interface_param_pub_;
   ros::Publisher iic_interface_param_pub_;
   ros::Publisher uwb_interface_param_pub_;
@@ -97,7 +120,10 @@ private:
   ros::Subscriber param_write_sub_;
   ros::Subscriber run_time_param_read_sub_;
   ros::Subscriber run_time_param_write_sub_;
-  ros::Subscriber interface_param_read_sub_;
+  ros::Subscriber peripheral_config_read_sub_;
+  ros::Subscriber peripheral_config_write_sub_;
+  ros::Subscriber hardware_peripheral_config_read_sub_;
+  ros::Subscriber final_peripheral_config_read_sub_;
   ros::Subscriber uart_interface_param_read_sub_;
   ros::Subscriber iic_interface_param_read_sub_;
   ros::Subscriber uwb_interface_param_read_sub_;

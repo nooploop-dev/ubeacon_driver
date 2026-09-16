@@ -10,6 +10,14 @@ bool output_anchor_signal
 bool output_anchor_ddoa
 bool output_tag_pos_even_error
 bool output_anchor_link_status
-uint8 sniff_duty_cycle          # 1~100
+bool output_imu
+bool output_attitude
+bool output_dis
+bool output_pdoa
+uint8 sniff_duty_cycle          # 百分比 1~100
 uint8 update_interval_max       # s
 uint16 reset_interval           # s
+uint8 min_sync_anchor_count
+uint8 min_sniff_duty_cycle      # 百分比 0~100
+bool disable_anchor_data_output_with_result
+uint8 static_map_id             # 0 表示不固定

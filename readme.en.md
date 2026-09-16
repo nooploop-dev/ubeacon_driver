@@ -262,12 +262,19 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | The same result as a standard message, for direct display in rviz |
 | `~/anchor_pos` | `AnchorPos` | Anchor coordinates received by the tag |
 | `~/anchor_signal` | `AnchorSignal` | Signal data of all anchors for one positioning cycle |
+| `~/anchor2tag_signal` | `Anchor2TagSignal` | Signal data emitted each time anchor signals used for positioning are received |
+| `~/tag2anchor_dis` | `Tag2AnchorDis` | Tag-to-anchor ranging results |
+| `~/tag2anchor_pdoa` | `Tag2AnchorPdoa` | Tag-to-anchor angle (PDoA) results |
 | `~/anchor_ddoas` | `AnchorDdoas` | Distance differences from the tag to anchor pairs |
+| `~/imu` | `Imu` | Raw IMU data |
+| `~/attitude` | `Attitude` | Attitude quaternion and noise |
 | `~/global_time_status` | `GlobalTimeStatus` | Global time synchronization status |
 | `~/heartbeat` | `Heartbeat` | Device heartbeat/status info |
 | `~/param` | `Param` | ROM parameter read response/current parameters |
 | `~/run_time_param` | `RunTimeParam` | RAM runtime parameters |
-| `~/interface_param` | `InterfaceParam` | Communication interface configuration |
+| `~/peripheral_config` | `PeripheralConfig` | Peripheral software configuration |
+| `~/hardware_peripheral_config` | `PeripheralConfig` | Peripheral configuration fixed by hardware (read-only) |
+| `~/final_peripheral_config` | `PeripheralConfig` | Effective peripheral configuration after merging software and hardware (read-only) |
 | `~/uart_interface_param` | `UartInterfaceParam` | UART parameters |
 | `~/iic_interface_param` | `IicInterfaceParam` | IIC parameters |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | UWB parameters |
@@ -288,7 +295,10 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/param_write` | `Param` | Write ROM parameters |
 | `~/run_time_param_read` | `std_msgs/Empty` | Read RAM runtime parameters |
 | `~/run_time_param_write` | `RunTimeParam` | Write RAM runtime parameters |
-| `~/interface_param_read` | `std_msgs/Empty` | Read interface configuration |
+| `~/peripheral_config_read` | `std_msgs/Empty` | Read peripheral software configuration |
+| `~/peripheral_config_write` | `PeripheralConfig` | Write peripheral software configuration |
+| `~/hardware_peripheral_config_read` | `std_msgs/Empty` | Read hardware-fixed peripheral configuration |
+| `~/final_peripheral_config_read` | `std_msgs/Empty` | Read effective peripheral configuration |
 | `~/uart_interface_param_read` | `std_msgs/Empty` | Read UART parameters |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | Read IIC parameters |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | Read UWB parameters |
