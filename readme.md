@@ -23,7 +23,7 @@ ubeacon_driver/
 │   └── ubeacon_msg.h               #   消息层(内部)
 ├── test/                           # 接口用法的完整示例(强烈建议参考)
 ├── app/                            # 上位机应用与集成示例
-│   ├── reader/                     #   从串口接收并解析(含可选 Foxglove 可视化)
+│   ├── reader/                     #   从串口接收并解析的交互式控制台(含可选 Foxglove 可视化)
 │   ├── writer/                     #   组包并通过串口向设备发送
 │   ├── ros1_converter/             #   ROS1 话题转换节点
 │   └── ros2_converter/             #   ROS2 话题转换节点
@@ -301,6 +301,28 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/uart_interface_param_read` | `std_msgs/Empty` | 读取串口通信参数 |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | 读取 iic 通信参数 |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | 读取 uwb 通信参数 |
+
+## 交互式控制台（reader）
+
+`app/reader/` 在终端里运行时是一个交互式控制台：上方持续滚动显示解析出的设备消息，最底一行是命令输入，回车即把命令组包发给设备，设备的响应会随日志一起出现在上方。基于 [FTXUI](https://github.com/ArthurSonzogni/FTXUI) 实现，Windows / Linux / macOS 通用。
+
+```bash
+./build/app/reader/reader --port /dev/ttyUSB0
+```
+
+命令语法为 `<消息名> [字段=值 ...]`，消息名是 `UB_MSG_*` 去掉前缀后的小写形式，字段名与 [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) 中对应 `UBData*` 结构体的成员一致（嵌套用 `.`、数组用 `[i]`）。输入 `help` 列出全部消息与字段（此时日志暂停刷新以便阅读，底部有提示，可用鼠标滚轮或 PageUp / PageDown 翻看，按 Esc、回车或点击输入行左侧的 `[ resume ]` 按钮恢复；点击 `[ pause ]` 同理。平时向上滚动或按 PageUp 也会暂停并回看最近的日志，这种情况滚回底部即自动恢复），`quit` / `exit` / `Ctrl+C` 退出，上下方向键翻阅历史命令：
+
+```text
+read_param                                  无负载的读请求
+find duration=5                             有负载的消息，字段=值
+write_param output.dis=1 smooth_window=3    先 read_param，再只改要改的字段
+user_data payload=hello
+```
+
+- 值的写法：整数支持十进制或 `0x` 十六进制，浮点直接写，布尔写 `0/1/true/false`。
+- **写命令以设备最近一次回传的同一消息为基础**，只需给出要修改的字段；尚未收到过时（例如还没 `read_param`）必须给全所有字段，否则拒绝发送——避免把未指定的字段写成 0。
+- 日志文件 `logs/logger.log` 照常记录全部内容；界面只显示最新的一屏。
+- 加 `--no-console` 退回到纯文本输出；标准输出不是终端时（重定向、管道）自动退回。
 
 ## Foxglove 可视化（无需 ROS）
 

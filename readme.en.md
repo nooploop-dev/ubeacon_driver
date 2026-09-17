@@ -23,7 +23,7 @@ ubeacon_driver/
 │   └── ubeacon_msg.h               #   Message layer (internal)
 ├── test/                           # Complete API usage examples (highly recommended)
 ├── app/                            # Host applications and integration examples
-│   ├── reader/                     #   Receive and parse over serial (optional Foxglove viz)
+│   ├── reader/                     #   Interactive console: receive/parse over serial (optional Foxglove viz)
 │   ├── writer/                     #   Encode and send to the device over serial
 │   ├── ros1_converter/             #   ROS1 topic conversion node
 │   └── ros2_converter/             #   ROS2 topic conversion node
@@ -301,6 +301,28 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/uart_interface_param_read` | `std_msgs/Empty` | Read UART parameters |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | Read IIC parameters |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | Read UWB parameters |
+
+## Interactive Console (reader)
+
+When run in a terminal, `app/reader/` is an interactive console: parsed device messages scroll continuously in the upper area, the bottom line takes commands, and Enter encodes the command and sends it to the device; the device's replies show up in the log above. Built on [FTXUI](https://github.com/ArthurSonzogni/FTXUI), it works on Windows / Linux / macOS.
+
+```bash
+./build/app/reader/reader --port /dev/ttyUSB0
+```
+
+The command syntax is `<message> [field=value ...]`. The message name is the lowercase `UB_MSG_*` identifier without the prefix, and field names match the members of the corresponding `UBData*` struct in [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) (`.` for nested members, `[i]` for arrays). Type `help` to list every message and its fields (the log pauses so you can read it, a hint appears at the bottom, the mouse wheel or PageUp / PageDown scrolls, and Esc, Enter or clicking the `[ resume ]` button left of the input line resumes; clicking `[ pause ]` works the same way. Scrolling up or pressing PageUp at any time also pauses and lets you look back through recent output, and in that case scrolling back to the bottom resumes automatically), `quit` / `exit` / `Ctrl+C` to leave, and use the up/down arrow keys to recall previous commands:
+
+```text
+read_param                                  read request without payload
+find duration=5                             message with payload, field=value
+write_param output.dis=1 smooth_window=3    read_param first, then change only what you need
+user_data payload=hello
+```
+
+- Values: integers in decimal or `0x` hex, floats as-is, booleans as `0/1/true/false`.
+- **Write commands start from the last copy of that message received from the device**, so only the fields you change need to be given. Before anything has been received (e.g. before `read_param`), every field is required and the command is refused otherwise, so unspecified fields are never silently written as 0.
+- The log file `logs/logger.log` still records everything; the screen only shows the most recent page.
+- Add `--no-console` to fall back to plain text output; this happens automatically when stdout is not a terminal (redirection, pipes).
 
 ## Foxglove Visualization (no ROS required)
 

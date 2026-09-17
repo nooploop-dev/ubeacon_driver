@@ -4,11 +4,26 @@ add_executable(
     main.cpp
     reader_data_handle.cpp
     reader_data_handle.hpp
+    console_commands.cpp
+    console_commands.hpp
+    tui_console.cpp
+    tui_console.hpp
     foxglove_viz.hpp
 )
+
+# 交互式控制台界面
+set(FTXUI_ENABLE_INSTALL OFF)
+set(FTXUI_QUIET ON)
+FetchContent_Declare(
+    ftxui
+    GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI.git
+    GIT_TAG v7.0.3
+)
+FetchContent_MakeAvailable(ftxui)
+
 target_link_libraries(
     ${TARGET_NAME}
-    PRIVATE ${LIB_COMMON} spdlog_local CLI11::CLI11
+    PRIVATE ${LIB_COMMON} spdlog_local CLI11::CLI11 ftxui::component
 )
 target_include_directories(${TARGET_NAME} PRIVATE ..)
 target_compile_definitions(${TARGET_NAME} PRIVATE APP_NAME="${TARGET_NAME}")
