@@ -23,7 +23,7 @@ target_link_libraries(
     PUBLIC ${LIB_DEV_DRIVER} asio Threads::Threads
 )
 
-if(UB_BUILD_READER OR UB_BUILD_WRITER)
+if(UB_BUILD_MONITOR OR UB_BUILD_WRITER)
     FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
@@ -49,9 +49,9 @@ if(UB_BUILD_READER OR UB_BUILD_WRITER)
     endif()
 endif()
 
-if(UB_BUILD_READER)
-    message(STATUS "build reader")
-    add_subdirectory(reader)
+if(UB_BUILD_MONITOR)
+    message(STATUS "build monitor")
+    add_subdirectory(monitor)
 endif()
 
 if(UB_BUILD_WRITER)

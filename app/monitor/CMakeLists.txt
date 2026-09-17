@@ -1,9 +1,9 @@
-set(TARGET_NAME reader)
+set(TARGET_NAME monitor)
 add_executable(
     ${TARGET_NAME}
     main.cpp
-    reader_data_handle.cpp
-    reader_data_handle.hpp
+    monitor_data_handle.cpp
+    monitor_data_handle.hpp
     console_commands.cpp
     console_commands.hpp
     tui_console.cpp
@@ -61,6 +61,6 @@ if(UB_BUILD_FOXGLOVE)
         target_link_libraries(${TARGET_NAME} PRIVATE ntdll)
     endif()
 else()
-    # 未启用时链接空实现，reader不引入任何Foxglove代码
+    # 未启用时链接空实现，monitor不引入任何Foxglove代码
     target_sources(${TARGET_NAME} PRIVATE foxglove_viz_stub.cpp)
 endif()

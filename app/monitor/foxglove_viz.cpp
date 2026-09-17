@@ -158,7 +158,7 @@ bool init(const std::string &host, uint16_t port, const std::string &frame_id) {
   ensure_channels();
 
   foxglove::WebSocketServerOptions options;
-  options.name = "ubeacon_reader";
+  options.name = "ubeacon_monitor";
   options.host = host;
   options.port = port;
 

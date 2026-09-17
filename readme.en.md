@@ -23,7 +23,7 @@ ubeacon_driver/
 │   └── ubeacon_msg.h               #   Message layer (internal)
 ├── test/                           # Complete API usage examples (highly recommended)
 ├── app/                            # Host applications and integration examples
-│   ├── reader/                     #   Interactive console: receive/parse over serial (optional Foxglove viz)
+│   ├── monitor/                    #   Serial monitor: parse/display device data, send commands interactively (optional Foxglove viz)
 │   ├── writer/                     #   Encode and send to the device over serial
 │   ├── ros1_converter/             #   ROS1 topic conversion node
 │   └── ros2_converter/             #   ROS2 topic conversion node
@@ -45,7 +45,7 @@ The pure C driver does just two things: **encode** the messages you want to send
 
 Your application code only needs `#include "ubeacon_driver_for_user.h"`. The driver targets C11, performs no dynamic allocation and has no third-party dependencies, so it fits resource-constrained MCUs.
 
-> A pure C project does not need `app/`. To see how the driver API plugs into a real I/O loop, look at [`app/reader/`](app/reader/) (parsing) and [`app/writer/`](app/writer/) (encoding). Those examples use C++ for serial and logging, but the driver API they call is exactly the same as in a pure C project.
+> A pure C project does not need `app/`. To see how the driver API plugs into a real I/O loop, look at [`app/monitor/`](app/monitor/) (parsing) and [`app/writer/`](app/writer/) (encoding). Those examples use C++ for serial and logging, but the driver API they call is exactly the same as in a pure C project.
 
 ### User API Separated From Protocol Details
 
@@ -302,12 +302,12 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/iic_interface_param_read` | `std_msgs/Empty` | Read IIC parameters |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | Read UWB parameters |
 
-## Interactive Console (reader)
+## Serial Monitor (monitor)
 
-When run in a terminal, `app/reader/` is an interactive console: parsed device messages scroll continuously in the upper area, the bottom line takes commands, and Enter encodes the command and sends it to the device; the device's replies show up in the log above. Built on [FTXUI](https://github.com/ArthurSonzogni/FTXUI), it works on Windows / Linux / macOS.
+When run in a terminal, `app/monitor/` is an interactive console: parsed device messages scroll continuously in the upper area, the bottom line takes commands, and Enter encodes the command and sends it to the device; the device's replies show up in the log above. Built on [FTXUI](https://github.com/ArthurSonzogni/FTXUI), it works on Windows / Linux / macOS.
 
 ```bash
-./build/app/reader/reader --port /dev/ttyUSB0
+./build/app/monitor/monitor --port /dev/ttyUSB0
 ```
 
 The command syntax is `<message> [field=value ...]`. The message name is the lowercase `UB_MSG_*` identifier without the prefix, and field names match the members of the corresponding `UBData*` struct in [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) (`.` for nested members, `[i]` for arrays). Type `help` to list every message and its fields (the log pauses so you can read it, a hint appears at the bottom, the mouse wheel or PageUp / PageDown scrolls, and Esc, Enter or clicking the `[ resume ]` button left of the input line resumes; clicking `[ pause ]` works the same way. Scrolling up or pressing PageUp at any time also pauses and lets you look back through recent output, and in that case scrolling back to the bottom resumes automatically), `quit` / `exit` / `Ctrl+C` to leave, and use the up/down arrow keys to recall previous commands:
@@ -326,12 +326,12 @@ user_data payload=hello
 
 ## Foxglove Visualization (no ROS required)
 
-On top of its existing log output, `app/reader/` can host a Foxglove WebSocket server. It does not depend on ROS, which makes it handy for inspecting data on machines without a ROS installation. **It is on by default in non-ROS builds**:
+On top of its existing log output, `app/monitor/` can host a Foxglove WebSocket server. It does not depend on ROS, which makes it handy for inspecting data on machines without a ROS installation. **It is on by default in non-ROS builds**:
 
 ```bash
 cmake -B build && cmake --build build
-./build/app/reader/reader --port /dev/ttyUSB0   # baudrate defaults to 115200, Foxglove port to 8765
-./build/app/reader/reader --port /dev/ttyUSB0 --baudrate 115200 --foxglove_port 8765
+./build/app/monitor/monitor --port /dev/ttyUSB0   # baudrate defaults to 115200, Foxglove port to 8765
+./build/app/monitor/monitor --port /dev/ttyUSB0 --baudrate 115200 --foxglove_port 8765
 ```
 
 Then in Foxglove choose **Open connection → Foxglove WebSocket** and enter `ws://<device-ip>:8765`. Log printing is unchanged; both run side by side.
@@ -352,7 +352,7 @@ Anchor coordinates come from `UB_MSG_ANCHOR_POS`; they are cached and drawn into
 Add `--record` to record every topic in the table above into an MCAP file that you can drag straight into Foxglove for replay:
 
 ```bash
-./build/app/reader/reader --port /dev/ttyUSB0 --record
+./build/app/monitor/monitor --port /dev/ttyUSB0 --record
 ```
 
 The file is written to `logs/ubeacon_<datetime>.mcap` (same directory as the logs, e.g. `logs/ubeacon_20260713_182432_123.mcap`, millisecond precision, so repeated runs never overwrite each other). Recording and the WebSocket server are independent and can be used together.
@@ -381,9 +381,9 @@ Reference: [Fix Serial Port “Permission Denied” Errors on Linux](https://web
 | --- | --- | --- |
 | `UB_BUILD_ROS1` | auto-detected from `ROS_VERSION` | Build the ROS1 driver package |
 | `UB_BUILD_ROS2` | auto-detected from `ROS_VERSION` | Build the ROS2 driver package |
-| `UB_BUILD_READER` | ON for non-ROS builds / OFF for ROS builds | Build the serial receive-and-parse example |
+| `UB_BUILD_MONITOR` | ON for non-ROS builds / OFF for ROS builds | Build the serial monitor |
 | `UB_BUILD_WRITER` | ON for non-ROS builds / OFF for ROS builds | Build the encode-and-send example |
-| `UB_BUILD_FOXGLOVE` | ON for non-ROS builds / OFF for ROS builds | Enable Foxglove visualization for reader (fetches the Foxglove SDK automatically) |
+| `UB_BUILD_FOXGLOVE` | ON for non-ROS builds / OFF for ROS builds | Enable Foxglove visualization for monitor (fetches the Foxglove SDK automatically) |
 | `UB_BUILD_TEST` | ON for non-ROS builds / OFF for ROS builds | Build the pure C driver unit tests (fetches Catch2 automatically) |
 
 When no ROS option is given explicitly, the version is chosen from the `ROS_VERSION` environment variable, so `catkin_make` / `colcon build` just work inside a ROS workspace.

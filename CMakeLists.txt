@@ -17,18 +17,18 @@ endif()
 option(UB_BUILD_ROS1 "build ROS1 converter" ${_ub_ros1_default})
 option(UB_BUILD_ROS2 "build ROS2 converter" ${_ub_ros2_default})
 
-# 非ROS构建时默认启用reader/writer/test以及FOXGLOVE可视化支持， ROS构建时这些默认关闭
+# 非ROS构建时默认启用monitor/writer/test以及FOXGLOVE可视化支持， ROS构建时这些默认关闭
 if(UB_BUILD_ROS1 OR UB_BUILD_ROS2)
     set(_ub_native_default OFF)
 else()
     set(_ub_native_default ON)
 endif()
-option(UB_BUILD_READER "build reader" ${_ub_native_default})
+option(UB_BUILD_MONITOR "build monitor" ${_ub_native_default})
 option(UB_BUILD_WRITER "build writer" ${_ub_native_default})
 option(UB_BUILD_TEST "build test" ${_ub_native_default})
 option(
     UB_BUILD_FOXGLOVE
-    "build reader with foxglove visualization"
+    "build monitor with foxglove visualization"
     ${_ub_native_default}
 )
 

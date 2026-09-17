@@ -1,7 +1,7 @@
 #include "console_commands.hpp"
 #include "foxglove_viz.hpp"
 #include "main_common.hpp"
-#include "reader_data_handle.hpp"
+#include "monitor_data_handle.hpp"
 #include "tui_console.hpp"
 #include <CLI/CLI.hpp>
 #include <chrono>
@@ -55,7 +55,7 @@ void on_frame_msg_with_console(void *arg, ub_msg_id_t msg_id,
 } // namespace
 
 int main(int argc, char **argv) {
-  CLI::App app{"Receive and parse data from a uBeacon device", APP_NAME};
+  CLI::App app{"Monitor a uBeacon device and send it commands", APP_NAME};
   argv = app.ensure_utf8(argv);
 
   std::string port;

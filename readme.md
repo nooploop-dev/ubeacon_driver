@@ -23,7 +23,7 @@ ubeacon_driver/
 │   └── ubeacon_msg.h               #   消息层(内部)
 ├── test/                           # 接口用法的完整示例(强烈建议参考)
 ├── app/                            # 上位机应用与集成示例
-│   ├── reader/                     #   从串口接收并解析的交互式控制台(含可选 Foxglove 可视化)
+│   ├── monitor/                    #   串口监视器：解析并显示设备数据、交互式发送命令(含可选 Foxglove 可视化)
 │   ├── writer/                     #   组包并通过串口向设备发送
 │   ├── ros1_converter/             #   ROS1 话题转换节点
 │   └── ros2_converter/             #   ROS2 话题转换节点
@@ -45,7 +45,7 @@ ubeacon_driver/
 
 业务代码中只需 `#include "ubeacon_driver_for_user.h"`。驱动遵循 C11，无动态内存分配、无第三方依赖，适合资源受限的 MCU。
 
-> 纯 C 工程不需要 `app/`。若想了解如何把驱动接口接入实际收发流程，可参考 [`app/reader/`](app/reader/)（解析）和 [`app/writer/`](app/writer/)（组包）。示例用 C++ 实现串口与日志，但调用的驱动接口与纯 C 工程完全相同。
+> 纯 C 工程不需要 `app/`。若想了解如何把驱动接口接入实际收发流程，可参考 [`app/monitor/`](app/monitor/)（解析）和 [`app/writer/`](app/writer/)（组包）。示例用 C++ 实现串口与日志，但调用的驱动接口与纯 C 工程完全相同。
 
 ### 用户接口与协议细节分离
 
@@ -302,12 +302,12 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/iic_interface_param_read` | `std_msgs/Empty` | 读取 iic 通信参数 |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | 读取 uwb 通信参数 |
 
-## 交互式控制台（reader）
+## 串口监视器（monitor）
 
-`app/reader/` 在终端里运行时是一个交互式控制台：上方持续滚动显示解析出的设备消息，最底一行是命令输入，回车即把命令组包发给设备，设备的响应会随日志一起出现在上方。基于 [FTXUI](https://github.com/ArthurSonzogni/FTXUI) 实现，Windows / Linux / macOS 通用。
+`app/monitor/` 在终端里运行时是一个交互式控制台：上方持续滚动显示解析出的设备消息，最底一行是命令输入，回车即把命令组包发给设备，设备的响应会随日志一起出现在上方。基于 [FTXUI](https://github.com/ArthurSonzogni/FTXUI) 实现，Windows / Linux / macOS 通用。
 
 ```bash
-./build/app/reader/reader --port /dev/ttyUSB0
+./build/app/monitor/monitor --port /dev/ttyUSB0
 ```
 
 命令语法为 `<消息名> [字段=值 ...]`，消息名是 `UB_MSG_*` 去掉前缀后的小写形式，字段名与 [include/ubeacon_driver_data.h](include/ubeacon_driver_data.h) 中对应 `UBData*` 结构体的成员一致（嵌套用 `.`、数组用 `[i]`）。输入 `help` 列出全部消息与字段（此时日志暂停刷新以便阅读，底部有提示，可用鼠标滚轮或 PageUp / PageDown 翻看，按 Esc、回车或点击输入行左侧的 `[ resume ]` 按钮恢复；点击 `[ pause ]` 同理。平时向上滚动或按 PageUp 也会暂停并回看最近的日志，这种情况滚回底部即自动恢复），`quit` / `exit` / `Ctrl+C` 退出，上下方向键翻阅历史命令：
@@ -326,12 +326,12 @@ user_data payload=hello
 
 ## Foxglove 可视化（无需 ROS）
 
-`app/reader/` 在原有日志打印之外，可内置一个 Foxglove WebSocket 服务，不依赖 ROS，适合在没有 ROS 环境的机器上直接看数据。**非 ROS 构建下默认开启**：
+`app/monitor/` 在原有日志打印之外，可内置一个 Foxglove WebSocket 服务，不依赖 ROS，适合在没有 ROS 环境的机器上直接看数据。**非 ROS 构建下默认开启**：
 
 ```bash
 cmake -B build && cmake --build build
-./build/app/reader/reader --port /dev/ttyUSB0   # 波特率默认 115200，Foxglove 端口默认 8765
-./build/app/reader/reader --port /dev/ttyUSB0 --baudrate 115200 --foxglove_port 8765
+./build/app/monitor/monitor --port /dev/ttyUSB0   # 波特率默认 115200，Foxglove 端口默认 8765
+./build/app/monitor/monitor --port /dev/ttyUSB0 --baudrate 115200 --foxglove_port 8765
 ```
 
 然后在 Foxglove 中选择 **Open connection → Foxglove WebSocket**，地址填 `ws://<设备IP>:8765`。日志打印保持原样，两者同时输出。
@@ -352,7 +352,7 @@ cmake -B build && cmake --build build
 加 `--record` 即可把上表中的所有话题录制成 MCAP 文件，事后可直接拖进 Foxglove 回放：
 
 ```bash
-./build/app/reader/reader --port /dev/ttyUSB0 --record
+./build/app/monitor/monitor --port /dev/ttyUSB0 --record
 ```
 
 文件写入 `logs/ubeacon_<日期时间>.mcap`（与日志同目录，例如 `logs/ubeacon_20260713_182432_123.mcap`，精确到毫秒，多次运行不会互相覆盖）。录制与 WebSocket 服务相互独立，可同时使用。
@@ -381,9 +381,9 @@ sudo usermod -a -G dialout $USER   # -a 不可省略，否则会把用户移出�
 | --- | --- | --- |
 | `UB_BUILD_ROS1` | 依 `ROS_VERSION` 自动检测 | 构建 ROS1 驱动包 |
 | `UB_BUILD_ROS2` | 依 `ROS_VERSION` 自动检测 | 构建 ROS2 驱动包 |
-| `UB_BUILD_READER` | 非 ROS 构建 ON / ROS 构建 OFF | 构建串口接收与解析示例 |
+| `UB_BUILD_MONITOR` | 非 ROS 构建 ON / ROS 构建 OFF | 构建串口监视器 |
 | `UB_BUILD_WRITER` | 非 ROS 构建 ON / ROS 构建 OFF | 构建组包与串口发送示例 |
-| `UB_BUILD_FOXGLOVE` | 非 ROS 构建 ON / ROS 构建 OFF | 为 reader 启用 Foxglove 可视化（自动拉取 Foxglove SDK） |
+| `UB_BUILD_FOXGLOVE` | 非 ROS 构建 ON / ROS 构建 OFF | 为 monitor 启用 Foxglove 可视化（自动拉取 Foxglove SDK） |
 | `UB_BUILD_TEST` | 非 ROS 构建 ON / ROS 构建 OFF | 构建纯 C 驱动单元测试（自动拉取 Catch2） |
 
 未显式指定 ROS 选项时，会依据环境变量 `ROS_VERSION` 自动选择，因此在 ROS 工作空间中直接用 `catkin_make` / `colcon build` 即可。

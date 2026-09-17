@@ -1,4 +1,4 @@
-// UB_BUILD_FOXGLOVE 关闭时链接本文件，reader 的行为与集成 Foxglove 前完全一致。
+// UB_BUILD_FOXGLOVE 关闭时链接本文件，monitor 的行为与集成 Foxglove 前完全一致。
 // MCAP 录制依赖 Foxglove SDK，故本文件中同样是空实现。
 
 #include "foxglove_viz.hpp"
