@@ -100,6 +100,14 @@ TEST_CASE("round trip: twr_param") {
   roundtrip(UB_MSG_TWR_PARAM, d);
 }
 
+TEST_CASE("round trip: twr_result") {
+  UBDataTwrResult d{};
+  d.peer = 0x1001;
+  d.dis = 12.34f;
+  d.clock_offset_ppm = -1.5f;
+  roundtrip_to_user(UB_MSG_TWR_RESULT, d);
+}
+
 TEST_CASE("round trip: location_result") {
   UBDataLocationResult d{};
   d.local_time_us = 123456789;
@@ -510,6 +518,19 @@ TEST_CASE("scaling: twr_param field positions") {
   REQUIRE(d.dis_remain_slot_count == 1);
 }
 
+TEST_CASE("scaling: twr_result field positions") {
+  // 线格式 6 字节：[0..1] peer  [2..3] dis_cm  [4..5] _clock_offset_ppm(0.01)
+  std::vector<uint8_t> payload = {0x01, 0x10, 0xD2, 0x04, 0x6A, 0xFF};
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_TWR_RESULT, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d =
+      *reinterpret_cast<const UBDataTwrResult *>(cap.msgs[0].data.data());
+  REQUIRE(d.peer == 0x1001);
+  REQUIRE(d.dis == Approx(12.34f));            // 1234cm
+  REQUIRE(d.clock_offset_ppm == Approx(-1.5f)); // -150
+}
+
 TEST_CASE("scaling: anchor2tag_ddoa group fields and ddoa_cm") {
   // 头部：[0..7] begin_time  [8] group_count:4 | group_index:4  [9] count
   // 每个元素 6 字节：a0(2) a1(2) ddoa_cm(int16)
@@ -798,6 +819,9 @@ TEST_CASE("uplink-only messages cannot be built as a downlink frame") {
           0);
   UBDataAnchorPos ap{};
   REQUIRE(ub_prepare_msg_to_dev(UB_MSG_ANCHOR_POS, &ap, frame, sizeof(frame)) <
+          0);
+  UBDataTwrResult tr{};
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_TWR_RESULT, &tr, frame, sizeof(frame)) <
           0);
 }
 

@@ -50,6 +50,8 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
   uwb_interface_param_pub_ = nh_->advertise<ubeacon_driver::UwbInterfaceParam>(
       "uwb_interface_param", 50);
   twr_param_pub_ = nh_->advertise<ubeacon_driver::TwrParam>("twr_param", 50);
+  twr_result_pub_ =
+      nh_->advertise<ubeacon_driver::TwrResult>("twr_result", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = nh_->subscribe("find", 50, &Ros1DataHandle::on_find, this);
@@ -369,6 +371,14 @@ void Ros1DataHandle::dispatch(const UBDataTwrParam &data) {
   twr_param_pub_.publish(msg);
 }
 
+void Ros1DataHandle::dispatch(const UBDataTwrResult &data) {
+  ubeacon_driver::TwrResult msg;
+  msg.peer = data.peer;
+  msg.dis = data.dis;
+  msg.clock_offset_ppm = data.clock_offset_ppm;
+  twr_result_pub_.publish(msg);
+}
+
 // ---------------- 用户 -> 设备(v) ----------------
 
 void Ros1DataHandle::on_find(const ubeacon_driver::Find::ConstPtr &msg) {
@@ -591,6 +601,9 @@ void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_TWR_PARAM:
     self->dispatch(*static_cast<const UBDataTwrParam *>(data));
+    break;
+  case UB_MSG_TWR_RESULT:
+    self->dispatch(*static_cast<const UBDataTwrResult *>(data));
     break;
   default:
     break;

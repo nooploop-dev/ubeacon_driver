@@ -23,6 +23,7 @@
 #include <ubeacon_driver/Tag2AnchorDis.h>
 #include <ubeacon_driver/Tag2AnchorPdoa.h>
 #include <ubeacon_driver/TwrParam.h>
+#include <ubeacon_driver/TwrResult.h>
 #include <ubeacon_driver/UartInterfaceParam.h>
 #include <ubeacon_driver/UserData.h>
 #include <ubeacon_driver/UwbInterfaceParam.h>
@@ -58,6 +59,7 @@ private:
   void dispatch(const UBDataIicInterfaceParam &data);
   void dispatch(const UBDataUwbInterfaceParam &data);
   void dispatch(const UBDataTwrParam &data);
+  void dispatch(const UBDataTwrResult &data);
 
   // 用户 -> 设备(v)，订阅话题后发送给设备
   void on_find(const ubeacon_driver::Find::ConstPtr &msg);
@@ -106,6 +108,7 @@ private:
   ros::Publisher iic_interface_param_pub_;
   ros::Publisher uwb_interface_param_pub_;
   ros::Publisher twr_param_pub_;
+  ros::Publisher twr_result_pub_;
 
   ros::Subscriber find_sub_;
   ros::Subscriber restart_sub_;

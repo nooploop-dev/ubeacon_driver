@@ -22,6 +22,8 @@ enum {
   UB_MSG_FIND = 3,        // v^
   UB_MSG_RESET_PARAM = 4, // v^
 
+  UB_MSG_TWR_RESULT = 45, // ^
+
   UB_MSG_ANCHOR_POS = 51,         // ^
   UB_MSG_GLOBAL_TIME_STATUS = 58, // ^
 
@@ -231,6 +233,17 @@ typedef struct {
   // 末尾保留不分配的时隙数量，用于新信标随机接入，>=1
   uint8_t dis_remain_slot_count;
 } UBDataTwrParam;
+
+// 与网关的测距结果。网关开启测距应答并以本标签为目标后，标签每收到一次网关的
+// 应答就上报一次；与 UBDataTwrParam 控制的主动测距是两套独立机制
+typedef struct {
+  // 应答的网关
+  ub_addr_t peer;
+  // 距离 m，量程 ±327.67
+  float dis;
+  // 与网关之间的 uwb 时钟频偏，量程 ±327.67
+  float clock_offset_ppm;
+} UBDataTwrResult;
 
 // 心跳消息，5s 定时发送到后台
 typedef struct {

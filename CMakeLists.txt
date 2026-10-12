@@ -110,6 +110,7 @@ if(UB_BUILD_ROS1)
             Tag2AnchorPdoa.msg
             Tag2AnchorPdoaItem.msg
             TwrParam.msg
+            TwrResult.msg
             UartInterfaceParam.msg
             UserData.msg
             UwbInterfaceParam.msg
@@ -150,6 +151,7 @@ if(UB_BUILD_ROS2)
             "msg/Tag2AnchorPdoa.msg"
             "msg/Tag2AnchorPdoaItem.msg"
             "msg/TwrParam.msg"
+            "msg/TwrResult.msg"
             "msg/UartInterfaceParam.msg"
             "msg/UserData.msg"
             "msg/UwbInterfaceParam.msg"

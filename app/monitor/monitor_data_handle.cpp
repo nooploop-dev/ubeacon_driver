@@ -224,6 +224,13 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
                  data->dis_remain_slot_count);
     break;
   }
+  case UB_MSG_TWR_RESULT: {
+    auto data = get_data<UBDataTwrResult>(msg_payload, msg_payload_size);
+    spdlog::info("{},MSG_TWR_RESULT: {{peer={:#06x},dis={:.2f},"
+                 "clock_offset_ppm={:.2f}}}",
+                 header, data->peer, data->dis, data->clock_offset_ppm);
+    break;
+  }
   case UB_MSG_LOCATION_RESULT: {
     auto data = get_data<UBDataLocationResult>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_LOCATION_RESULT: {{local_time_us={},pos={},vel={},"

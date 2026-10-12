@@ -278,6 +278,7 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/iic_interface_param` | `IicInterfaceParam` | iic 通信参数 |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | uwb 通信参数 |
 | `~/twr_param` | `TwrParam` | 标签主动测距参数 |
+| `~/twr_result` | `TwrResult` | 网关开启测距应答后，标签与网关的测距结果 |
 | `~/user_data_from_device` | `UserData` | 设备上报的用户自定义数据 |
 
 **用户 → 设备**（发布以下发命令）

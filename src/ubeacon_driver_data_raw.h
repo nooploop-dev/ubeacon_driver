@@ -159,6 +159,12 @@ typedef struct {
 } UBRawDataTwrParam;
 
 typedef struct {
+  ub_addr_t peer;
+  int16_t dis_cm;
+  int16_t _clock_offset_ppm; // clock_offset_ppm = _clock_offset_ppm * 0.01
+} UBRawDataTwrResult;
+
+typedef struct {
   uint8_t battery_percent : 7;
   uint8_t battery_charging : 1;
   uint8_t need_restart : 1;
@@ -521,6 +527,23 @@ static inline void ub_data_twr_param_to_raw(const UBDataTwrParam *data,
   raw->dis_frequency = data->dis_frequency;
   raw->dis_slot_count_max = data->dis_slot_count_max;
   raw->dis_remain_slot_count = data->dis_remain_slot_count;
+  *size = (int)sizeof(*raw);
+}
+
+static inline void ub_data_twr_result_from_raw(const UBRawDataTwrResult *raw,
+                                               UBDataTwrResult *data) {
+  data->peer = raw->peer;
+  data->dis = raw->dis_cm * 0.01f;
+  data->clock_offset_ppm = raw->_clock_offset_ppm * 0.01f;
+}
+static inline void ub_data_twr_result_to_raw(const UBDataTwrResult *data,
+                                             void *buf, int *size) {
+  UBRawDataTwrResult *raw = (UBRawDataTwrResult *)buf;
+  memset(raw, 0, sizeof(*raw));
+  raw->peer = data->peer;
+  raw->dis_cm = (int16_t)ub_round_i32(data->dis * 100.0f);
+  raw->_clock_offset_ppm =
+      (int16_t)ub_round_i32(data->clock_offset_ppm * 100.0f);
   *size = (int)sizeof(*raw);
 }
 

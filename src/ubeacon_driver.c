@@ -117,6 +117,10 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataTwrParam, ub_data_twr_param_to_raw,
                        UBDataTwrParam);
     break;
+  case UB_MSG_TWR_RESULT:
+    UB_MSG_DATA_ENCODE(UBRawDataTwrResult, ub_data_twr_result_to_raw,
+                       UBDataTwrResult);
+    break;
   case UB_MSG_HEARTBEAT:
     UB_MSG_DATA_ENCODE(UBRawDataHeartbeat, ub_data_heartbeat_to_raw,
                        UBDataHeartbeat);
@@ -325,6 +329,10 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_TWR_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataTwrParam, ub_data_twr_param_from_raw,
                        UBDataTwrParam);
+    break;
+  case UB_MSG_TWR_RESULT:
+    UB_MSG_DATA_DECODE(UBRawDataTwrResult, ub_data_twr_result_from_raw,
+                       UBDataTwrResult);
     break;
   case UB_MSG_HEARTBEAT:
     UB_MSG_DATA_DECODE(UBRawDataHeartbeat, ub_data_heartbeat_from_raw,

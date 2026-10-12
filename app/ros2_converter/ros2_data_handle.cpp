@@ -71,6 +71,8 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
           "~/uwb_interface_param", 50);
   twr_param_pub_ =
       node_->create_publisher<ubeacon_driver::msg::TwrParam>("~/twr_param", 50);
+  twr_result_pub_ = node_->create_publisher<ubeacon_driver::msg::TwrResult>(
+      "~/twr_result", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = node_->create_subscription<ubeacon_driver::msg::Find>(
@@ -412,6 +414,14 @@ void Ros2DataHandle::dispatch(const UBDataTwrParam &data) {
   twr_param_pub_->publish(msg);
 }
 
+void Ros2DataHandle::dispatch(const UBDataTwrResult &data) {
+  ubeacon_driver::msg::TwrResult msg;
+  msg.peer = data.peer;
+  msg.dis = data.dis;
+  msg.clock_offset_ppm = data.clock_offset_ppm;
+  twr_result_pub_->publish(msg);
+}
+
 // ---------------- 用户 -> 设备(v) ----------------
 
 void Ros2DataHandle::on_find(const ubeacon_driver::msg::Find::SharedPtr msg) {
@@ -637,6 +647,9 @@ void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_TWR_PARAM:
     self->dispatch(*static_cast<const UBDataTwrParam *>(data));
+    break;
+  case UB_MSG_TWR_RESULT:
+    self->dispatch(*static_cast<const UBDataTwrResult *>(data));
     break;
   default:
     break;

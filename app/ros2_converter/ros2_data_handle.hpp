@@ -23,6 +23,7 @@
 #include <ubeacon_driver/msg/tag2_anchor_dis.hpp>
 #include <ubeacon_driver/msg/tag2_anchor_pdoa.hpp>
 #include <ubeacon_driver/msg/twr_param.hpp>
+#include <ubeacon_driver/msg/twr_result.hpp>
 #include <ubeacon_driver/msg/uart_interface_param.hpp>
 #include <ubeacon_driver/msg/user_data.hpp>
 #include <ubeacon_driver/msg/uwb_interface_param.hpp>
@@ -58,6 +59,7 @@ private:
   void dispatch(const UBDataIicInterfaceParam &data);
   void dispatch(const UBDataUwbInterfaceParam &data);
   void dispatch(const UBDataTwrParam &data);
+  void dispatch(const UBDataTwrResult &data);
 
   // 用户 -> 设备(v)，订阅话题后发送给设备
   void on_find(const ubeacon_driver::msg::Find::SharedPtr msg);
@@ -127,6 +129,7 @@ private:
   rclcpp::Publisher<ubeacon_driver::msg::UwbInterfaceParam>::SharedPtr
       uwb_interface_param_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::TwrParam>::SharedPtr twr_param_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::TwrResult>::SharedPtr twr_result_pub_;
 
   rclcpp::Subscription<ubeacon_driver::msg::Find>::SharedPtr find_sub_;
   rclcpp::Subscription<ubeacon_driver::msg::Restart>::SharedPtr restart_sub_;

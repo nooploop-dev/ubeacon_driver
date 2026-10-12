@@ -278,6 +278,7 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/iic_interface_param` | `IicInterfaceParam` | IIC parameters |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | UWB parameters |
 | `~/twr_param` | `TwrParam` | Tag-initiated ranging parameters |
+| `~/twr_result` | `TwrResult` | Tag-to-gateway ranging result, once the gateway answers ranging for this tag |
 | `~/user_data_from_device` | `UserData` | User-defined data reported by the device |
 
 **User → Device** (publish to send commands)
