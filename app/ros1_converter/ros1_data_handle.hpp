@@ -7,7 +7,6 @@
 #include <ubeacon_driver/Anchor2TagDdoa.h>
 #include <ubeacon_driver/Anchor2TagSignal.h>
 #include <ubeacon_driver/AnchorPos.h>
-#include <ubeacon_driver/AnchorSignal.h>
 #include <ubeacon_driver/Attitude.h>
 #include <ubeacon_driver/Find.h>
 #include <ubeacon_driver/GlobalTimeStatus.h>
@@ -42,7 +41,6 @@ private:
   // 设备 -> 用户(^)，解析后发布到话题
   void dispatch(const UBDataLocationResult &data);
   void dispatch(const UBDataHeartbeat &data);
-  void dispatch(const UBDataAnchorSignal &data);
   void dispatch(const UBDataAnchor2TagSignal &data);
   void dispatch(const UBDataTag2AnchorDis &data);
   void dispatch(const UBDataTag2AnchorPdoa &data);
@@ -90,7 +88,6 @@ private:
   ros::Publisher location_result_pub_;
   ros::Publisher location_result_pose_pub_;
   ros::Publisher heartbeat_pub_;
-  ros::Publisher anchor_signal_pub_;
   ros::Publisher anchor2tag_signal_pub_;
   ros::Publisher tag2anchor_dis_pub_;
   ros::Publisher tag2anchor_pdoa_pub_;

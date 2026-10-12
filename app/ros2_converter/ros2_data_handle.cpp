@@ -23,9 +23,6 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
           "~/location_result_pose", 50);
   heartbeat_pub_ = node_->create_publisher<ubeacon_driver::msg::Heartbeat>(
       "~/heartbeat", 50);
-  anchor_signal_pub_ =
-      node_->create_publisher<ubeacon_driver::msg::AnchorSignal>(
-          "~/anchor_signal", 50);
   anchor2tag_signal_pub_ =
       node_->create_publisher<ubeacon_driver::msg::Anchor2TagSignal>(
           "~/anchor2tag_signal", 50);
@@ -204,25 +201,6 @@ void Ros2DataHandle::dispatch(const UBDataHeartbeat &data) {
   msg.mcu_warn = data.mcu_warn;
   msg.uwb_warn = data.uwb_warn;
   heartbeat_pub_->publish(msg);
-}
-
-void Ros2DataHandle::dispatch(const UBDataAnchorSignal &data) {
-  ubeacon_driver::msg::AnchorSignal msg;
-  msg.local_time_us = data.local_time_us;
-  msg.area_id = data.area_id;
-  msg.datas.resize(data.count);
-  for (int i = 0; i < data.count; i++) {
-    msg.datas[i].addr = data.datas[i].addr;
-    msg.datas[i].fp_index = data.datas[i].fp_index;
-    msg.datas[i].fp_to_peak = data.datas[i].fp_to_peak;
-    msg.datas[i].mc = data.datas[i].mc;
-    msg.datas[i].rx_rssi = data.datas[i].rx_rssi;
-    msg.datas[i].fp_rssi = data.datas[i].fp_rssi;
-    msg.datas[i].uwb_clock_offset_ppm = data.datas[i].uwb_clock_offset_ppm;
-    msg.datas[i].mcu_clock_offset_ppm = data.datas[i].mcu_clock_offset_ppm;
-    msg.datas[i].rx_rate = data.datas[i].rx_rate;
-  }
-  anchor_signal_pub_->publish(msg);
 }
 
 void Ros2DataHandle::dispatch(const UBDataAnchor2TagSignal &data) {
@@ -608,9 +586,6 @@ void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_HEARTBEAT:
     self->dispatch(*static_cast<const UBDataHeartbeat *>(data));
-    break;
-  case UB_MSG_ANCHOR_SIGNAL:
-    self->dispatch(*static_cast<const UBDataAnchorSignal *>(data));
     break;
   case UB_MSG_ANCHOR2TAG_SIGNAL:
     self->dispatch(*static_cast<const UBDataAnchor2TagSignal *>(data));

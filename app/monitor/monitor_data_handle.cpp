@@ -39,23 +39,6 @@ const T *get_data(const void *msg_payload, int msg_payload_size) {
 }
 
 // 以下消息携带变长数组，逐元素展开
-std::string signals2str(const UBDataAnchorSignal *data) {
-  std::string s;
-  for (int i = 0; i < data->count; i++) {
-    if (i > 0) {
-      s += ",";
-    }
-    const auto &d = data->datas[i];
-    s += fmt::format("({:#06x},fp_index={:.1f},fp_to_peak={},mc={:.2f},"
-                     "rx_rssi={:.1f},fp_rssi={:.1f},uwb_clk={:.2f},"
-                     "mcu_clk={:.2f},rx_rate={:.2f})",
-                     d.addr, d.fp_index, d.fp_to_peak, d.mc, d.rx_rssi,
-                     d.fp_rssi, d.uwb_clock_offset_ppm, d.mcu_clock_offset_ppm,
-                     d.rx_rate);
-  }
-  return "[" + s + "]";
-}
-
 std::string anchor2tag_signals2str(const UBDataAnchor2TagSignal *data) {
   std::string s;
   for (int i = 0; i < data->count; i++) {
@@ -286,14 +269,6 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
     auto data = get_data<UBDataUserData>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_USER_DATA: {{payload={}}}", header,
                  data2hex(data->payload, data->payload_size));
-    break;
-  }
-  case UB_MSG_ANCHOR_SIGNAL: {
-    auto data = get_data<UBDataAnchorSignal>(msg_payload, msg_payload_size);
-    spdlog::info(
-        "{},MSG_ANCHOR_SIGNAL: {{local_time_us={},area_id={},datas={}}}", header,
-        data->local_time_us, data->area_id, signals2str(data));
-    foxglove_viz::publish(*data);
     break;
   }
   case UB_MSG_ANCHOR2TAG_DDOA: {

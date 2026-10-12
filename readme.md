@@ -261,7 +261,6 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/location_result` | `LocationResult` | 定位结果（位置/速度/噪声） |
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | 同一份定位结果的标准消息，供 rviz 直接显示 |
 | `~/anchor_pos` | `AnchorPos` | 标签收到的信标坐标信息 |
-| `~/anchor_signal` | `AnchorSignal` | 每次定位对应的所有信标信号数据 |
 | `~/anchor2tag_signal` | `Anchor2TagSignal` | 每次收到参与定位的信标信号后输出的信号数据 |
 | `~/tag2anchor_dis` | `Tag2AnchorDis` | 标签与信标之间的测距结果 |
 | `~/tag2anchor_pdoa` | `Tag2AnchorPdoa` | 标签与信标之间的测角结果 |
@@ -344,7 +343,7 @@ cmake -B build && cmake --build build
 | `/scene` | `foxglove.SceneUpdate` | 不确定性球（直径 2σ）+ 速度矢量 + 已知坐标的信标 |
 | `/tf` | `foxglove.FrameTransform` | `world` → `map`，3D 面板的坐标系 |
 | `/location_result` | JSON | 位置/速度/噪声/error_code，供 Plot 面板绘制曲线 |
-| `/anchor_signal` | JSON | 信标信号强度/收包率，供 Plot 面板绘制曲线 |
+| `/anchor_signal` | JSON | 信标信号强度/收包率（来自 `UB_MSG_ANCHOR2TAG_SIGNAL`），供 Plot 面板绘制曲线 |
 | `/heartbeat` | JSON | 电量等状态，供 Plot 面板绘制曲线 |
 
 信标坐标来自 `UB_MSG_ANCHOR_POS`，会被缓存并画进 3D 场景；最近一条 `UB_MSG_ANCHOR2TAG_SIGNAL` 中的信标标绿（需开启 `output.anchor_signal`），其余标灰。

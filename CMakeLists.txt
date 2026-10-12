@@ -88,8 +88,6 @@ if(UB_BUILD_ROS1)
     add_message_files(
             FILES
             AnchorPos.msg
-            AnchorSignal.msg
-            AnchorSignalItem.msg
             Anchor2TagDdoa.msg
             Anchor2TagDdoaItem.msg
             Anchor2TagSignal.msg
@@ -130,8 +128,6 @@ if(UB_BUILD_ROS2)
     rosidl_generate_interfaces(
             ${PKG_NAME}
             "msg/AnchorPos.msg"
-            "msg/AnchorSignal.msg"
-            "msg/AnchorSignalItem.msg"
             "msg/Anchor2TagDdoa.msg"
             "msg/Anchor2TagDdoaItem.msg"
             "msg/Anchor2TagSignal.msg"

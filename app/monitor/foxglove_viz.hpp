@@ -22,7 +22,6 @@ bool record_start(const std::string &file_path);
 
 void publish(const UBDataLocationResult &data);
 void publish(const UBDataAnchorPos &data);
-void publish(const UBDataAnchorSignal &data);
 void publish(const UBDataAnchor2TagSignal &data);
 void publish(const UBDataHeartbeat &data);
 

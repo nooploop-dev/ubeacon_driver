@@ -68,8 +68,8 @@ const std::string LOCATION_RESULT_SCHEMA = R"({
 const std::string ANCHOR_SIGNAL_SCHEMA = R"({
   "type": "object",
   "properties": {
-    "local_time_us": {"type": "number"},
-    "area_id": {"type": "number"},
+    "begin_time_us": {"type": "number"},
+    "location_mode": {"type": "number"},
     "count": {"type": "number"},
     "datas": {
       "type": "array",
@@ -143,7 +143,7 @@ void ensure_channels() {
   s_anchor_signal_ch = take(
       foxglove::RawChannel::create(
           "/anchor_signal", "json",
-          json_schema("ub.AnchorSignal", ANCHOR_SIGNAL_SCHEMA)),
+          json_schema("ub.Anchor2TagSignal", ANCHOR_SIGNAL_SCHEMA)),
       "/anchor_signal");
   s_heartbeat_ch =
       take(foxglove::RawChannel::create(
@@ -284,28 +284,24 @@ void publish(const UBDataAnchorPos &data) {
   s_anchors[data.src] = {data.pos[0], data.pos[1], data.pos[2]};
 }
 
-void publish(const UBDataAnchorSignal &data) {
+void publish(const UBDataAnchor2TagSignal &data) {
+  s_signal_anchors.clear();
   std::string datas;
   for (int i = 0; i < data.count; ++i) {
+    const auto &s = data.datas[i];
+    s_signal_anchors.push_back(s.addr);
     if (i > 0) {
       datas += ",";
     }
-    const auto &s = data.datas[i];
     datas += fmt::format(
         R"({{"addr":{},"rx_rssi":{},"fp_rssi":{},"rx_rate":{}}})", s.addr,
         s.rx_rssi, s.fp_rssi, s.rx_rate);
   }
   log_json(s_anchor_signal_ch,
-           fmt::format(
-               R"({{"local_time_us":{},"area_id":{},"count":{},"datas":[{}]}})",
-               data.local_time_us, data.area_id, data.count, datas));
-}
-
-void publish(const UBDataAnchor2TagSignal &data) {
-  s_signal_anchors.clear();
-  for (int i = 0; i < data.count; ++i) {
-    s_signal_anchors.push_back(data.datas[i].addr);
-  }
+           fmt::format(R"({{"begin_time_us":{},"location_mode":{},)"
+                       R"("count":{},"datas":[{}]}})",
+                       data.begin_time_us, data.location_mode, data.count,
+                       datas));
 }
 
 void publish(const UBDataHeartbeat &data) {

@@ -196,24 +196,6 @@ typedef struct {
 } UBRawDataUserData;
 
 typedef struct {
-  ub_local_time_us_t local_time_us;
-  uint8_t count : 4;
-  uint8_t area_id : 4;
-  uint8_t reserved;
-  struct {
-    ub_addr_t addr;
-    int16_t _fp_index; // fp_index = _fp_index * 0.1
-    int8_t fp_to_peak;
-    uint8_t _mc;                    // mc = _mc * 0.01
-    uint8_t _rx_rssi;               // rx_rssi = -_rx_rssi * 0.5
-    uint8_t _fp_rssi;               // fp_rssi = -_fp_rssi * 0.5
-    int16_t _uwb_clock_offset_ppm;  // = _uwb_clock_offset_ppm * 0.01
-    int16_t _mcu_clock_offset_ppm;  // = _mcu_clock_offset_ppm * 0.01
-    uint8_t _rx_rate;               // rx_rate = _rx_rate / 255
-  } datas[UB_ANCHOR_SIGNAL_DATA_MAX];
-} UBRawDataAnchorSignal;
-
-typedef struct {
   ub_local_time_us_t begin_time_us;
   uint8_t group_count : 4;
   uint8_t group_index : 4;
@@ -634,55 +616,6 @@ static inline void ub_data_user_data_to_raw(const UBDataUserData *data,
   memcpy(raw->payload, data->payload, payload_size);
   // 变长：只发送有效载荷
   *size = (int)offsetof(UBRawDataUserData, payload) + payload_size;
-}
-
-static inline void ub_data_anchor_signal_from_raw(
-    const UBRawDataAnchorSignal *raw, UBDataAnchorSignal *data) {
-  data->local_time_us = raw->local_time_us;
-  data->count = (uint8_t)ub_min_int(raw->count, UB_ANCHOR_SIGNAL_DATA_MAX);
-  data->area_id = raw->area_id;
-  for (int i = 0; i < data->count; ++i) {
-    data->datas[i].addr = raw->datas[i].addr;
-    data->datas[i].fp_index = raw->datas[i]._fp_index * 0.1f;
-    data->datas[i].fp_to_peak = raw->datas[i].fp_to_peak;
-    data->datas[i].mc = raw->datas[i]._mc * 0.01f;
-    data->datas[i].rx_rssi = raw->datas[i]._rx_rssi * -0.5f;
-    data->datas[i].fp_rssi = raw->datas[i]._fp_rssi * -0.5f;
-    data->datas[i].uwb_clock_offset_ppm =
-        raw->datas[i]._uwb_clock_offset_ppm * 0.01f;
-    data->datas[i].mcu_clock_offset_ppm =
-        raw->datas[i]._mcu_clock_offset_ppm * 0.01f;
-    data->datas[i].rx_rate = raw->datas[i]._rx_rate / 255.0f;
-  }
-}
-static inline void ub_data_anchor_signal_to_raw(const UBDataAnchorSignal *data,
-                                                void *buf, int *size) {
-  UBRawDataAnchorSignal *raw = (UBRawDataAnchorSignal *)buf;
-  memset(raw, 0, sizeof(*raw));
-  raw->local_time_us = data->local_time_us;
-  int count = ub_min_int(data->count, UB_ANCHOR_SIGNAL_DATA_MAX);
-  raw->count = count & 0x0F;
-  raw->area_id = data->area_id & 0x0F;
-  for (int i = 0; i < count; ++i) {
-    raw->datas[i].addr = data->datas[i].addr;
-    raw->datas[i]._fp_index =
-        (int16_t)ub_round_i32(data->datas[i].fp_index / 0.1f);
-    raw->datas[i].fp_to_peak = data->datas[i].fp_to_peak;
-    raw->datas[i]._mc = (uint8_t)ub_round_i32(data->datas[i].mc / 0.01f);
-    raw->datas[i]._rx_rssi =
-        (uint8_t)ub_round_i32(data->datas[i].rx_rssi / -0.5f);
-    raw->datas[i]._fp_rssi =
-        (uint8_t)ub_round_i32(data->datas[i].fp_rssi / -0.5f);
-    raw->datas[i]._uwb_clock_offset_ppm =
-        (int16_t)ub_round_i32(data->datas[i].uwb_clock_offset_ppm / 0.01f);
-    raw->datas[i]._mcu_clock_offset_ppm =
-        (int16_t)ub_round_i32(data->datas[i].mcu_clock_offset_ppm / 0.01f);
-    raw->datas[i]._rx_rate =
-        (uint8_t)ub_round_i32(data->datas[i].rx_rate * 255.0f);
-  }
-  // 变长：只发送有效元素
-  *size = (int)offsetof(UBRawDataAnchorSignal, datas) +
-          count * (int)sizeof(raw->datas[0]);
 }
 
 static inline void ub_data_anchor2tag_ddoa_from_raw(

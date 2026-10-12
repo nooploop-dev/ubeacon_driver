@@ -130,10 +130,6 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataUserData, ub_data_user_data_to_raw,
                        UBDataUserData);
     break;
-  case UB_MSG_ANCHOR_SIGNAL:
-    UB_MSG_DATA_ENCODE(UBRawDataAnchorSignal, ub_data_anchor_signal_to_raw,
-                       UBDataAnchorSignal);
-    break;
   case UB_MSG_ANCHOR2TAG_SIGNAL:
     UB_MSG_DATA_ENCODE(UBRawDataAnchor2TagSignal,
                        ub_data_anchor2tag_signal_to_raw,
@@ -342,10 +338,6 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_USER_DATA:
     UB_MSG_DATA_DECODE(UBRawDataUserData, ub_data_user_data_from_raw,
                        UBDataUserData);
-    break;
-  case UB_MSG_ANCHOR_SIGNAL:
-    UB_MSG_DATA_DECODE(UBRawDataAnchorSignal, ub_data_anchor_signal_from_raw,
-                       UBDataAnchorSignal);
     break;
   case UB_MSG_ANCHOR2TAG_SIGNAL:
     UB_MSG_DATA_DECODE(UBRawDataAnchor2TagSignal,

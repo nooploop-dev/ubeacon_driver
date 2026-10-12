@@ -157,32 +157,6 @@ TEST_CASE("round trip: user_data") {
   roundtrip(UB_MSG_USER_DATA, d);
 }
 
-TEST_CASE("round trip: anchor_signal") {
-  UBDataAnchorSignal d{};
-  d.local_time_us = 987654321;
-  d.count = 2;
-  d.area_id = 1;
-  d.datas[0].addr = 0x2001;
-  d.datas[0].fp_index = 745.6f;
-  d.datas[0].fp_to_peak = -5;
-  d.datas[0].mc = 0.85f;
-  d.datas[0].rx_rssi = -85.5f;
-  d.datas[0].fp_rssi = -90.0f;
-  d.datas[0].uwb_clock_offset_ppm = 1.23f;
-  d.datas[0].mcu_clock_offset_ppm = -4.56f;
-  d.datas[0].rx_rate = 1.0f;
-  d.datas[1].addr = 0x2002;
-  d.datas[1].fp_index = 750.0f;
-  d.datas[1].fp_to_peak = 3;
-  d.datas[1].mc = 0.5f;
-  d.datas[1].rx_rssi = -95.0f;
-  d.datas[1].fp_rssi = -99.5f;
-  d.datas[1].uwb_clock_offset_ppm = -2.0f;
-  d.datas[1].mcu_clock_offset_ppm = 3.0f;
-  d.datas[1].rx_rate = 0.75f;
-  roundtrip_to_user(UB_MSG_ANCHOR_SIGNAL, d);
-}
-
 TEST_CASE("round trip: anchor2tag_ddoa") {
   UBDataAnchor2TagDdoa d{};
   d.begin_time_us = 555;
@@ -440,6 +414,13 @@ TEST_CASE("anchor2tag_signal ppm encoding rounds, saturates and maps NaN") {
   REQUIRE(e1[5] == 2);
 }
 
+TEST_CASE("anchor_signal id 96 is not recognized") {
+  // 固件只在内部使用 AnchorSignal，对外改为输出 Anchor2TagSignal
+  auto cap = parse_from_dev(make_up_frame(96, std::vector<uint8_t>(10, 0)));
+  REQUIRE(cap.begin_count == 1);
+  REQUIRE(cap.msgs.empty());
+}
+
 TEST_CASE("legacy anchor2tag_signal id 89 is not recognized") {
   // 2.15.0.11 之前的固件用 89，且期间布局多次变化，驱动不再解析
   auto cap = parse_from_dev(make_up_frame(89, std::vector<uint8_t>(10, 0)));
@@ -687,18 +668,6 @@ TEST_CASE("variable length messages only send valid elements") {
   // 每多一个信标，线上就多 4 字节（addr 2 + dis_cm 2）
   REQUIRE(n3 == n0 + 3 * 4);
   REQUIRE(n9 == n0 + 9 * 4);
-}
-
-TEST_CASE("anchor_signal at max count fits in the 7-bit payload limit") {
-  // 满 9 个信标时线格式恰好 127 字节，正好压满 payload_size 的 7 位上限
-  UBDataAnchorSignal d{};
-  d.count = UB_ANCHOR_SIGNAL_DATA_MAX;
-  for (int i = 0; i < UB_ANCHOR_SIGNAL_DATA_MAX; ++i) {
-    d.datas[i].addr = static_cast<ub_addr_t>(0x2000 + i);
-    d.datas[i].rx_rssi = -85.5f;
-    d.datas[i].rx_rate = 1.0f;
-  }
-  roundtrip_to_user(UB_MSG_ANCHOR_SIGNAL, d);
 }
 
 TEST_CASE("out-of-range count from a corrupt device is clamped") {

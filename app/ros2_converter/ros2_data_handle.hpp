@@ -7,7 +7,6 @@
 #include <ubeacon_driver/msg/anchor2_tag_ddoa.hpp>
 #include <ubeacon_driver/msg/anchor2_tag_signal.hpp>
 #include <ubeacon_driver/msg/anchor_pos.hpp>
-#include <ubeacon_driver/msg/anchor_signal.hpp>
 #include <ubeacon_driver/msg/attitude.hpp>
 #include <ubeacon_driver/msg/find.hpp>
 #include <ubeacon_driver/msg/global_time_status.hpp>
@@ -42,7 +41,6 @@ private:
   // 设备 -> 用户(^)，解析后发布到话题
   void dispatch(const UBDataLocationResult &data);
   void dispatch(const UBDataHeartbeat &data);
-  void dispatch(const UBDataAnchorSignal &data);
   void dispatch(const UBDataAnchor2TagSignal &data);
   void dispatch(const UBDataTag2AnchorDis &data);
   void dispatch(const UBDataTag2AnchorPdoa &data);
@@ -98,8 +96,6 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr
       location_result_pose_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::Heartbeat>::SharedPtr heartbeat_pub_;
-  rclcpp::Publisher<ubeacon_driver::msg::AnchorSignal>::SharedPtr
-      anchor_signal_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::Anchor2TagSignal>::SharedPtr
       anchor2tag_signal_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::Tag2AnchorDis>::SharedPtr

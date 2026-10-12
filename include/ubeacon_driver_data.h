@@ -59,8 +59,6 @@ enum {
   UB_MSG_TAG2ANCHOR_DIS = 91,    // ^
   UB_MSG_TAG2ANCHOR_PDOA = 92,   // ^
 
-  UB_MSG_ANCHOR_SIGNAL = 96, // ^
-
   UB_MSG_READ_RUN_TIME_PARAM = 100,                    // v
   UB_MSG_WRITE_RUN_TIME_PARAM = 101,                   // v
   UB_MSG_RUN_TIME_PARAM = UB_MSG_WRITE_RUN_TIME_PARAM, // ^
@@ -81,7 +79,6 @@ enum {
   UB_MSG_ATTITUDE = 116, // ^
 };
 
-#define UB_ANCHOR_SIGNAL_DATA_MAX 9
 #define UB_ANCHOR2TAG_SIGNAL_DATA_MAX 9
 #define UB_TAG2ANCHOR_DIS_DATA_MAX 9
 #define UB_TAG2ANCHOR_PDOA_DATA_MAX 9
@@ -288,29 +285,6 @@ typedef struct {
   uint8_t payload_size;
   uint8_t payload[UB_USER_DATA_PAYLOAD_MAX];
 } UBDataUserData;
-
-// 每次定位对应的所有信标信号数据
-typedef struct {
-  ub_local_time_us_t local_time_us;
-  // datas 中的有效元素数量
-  uint8_t count;
-  // 对应的区域 id
-  uint8_t area_id;
-  struct {
-    ub_addr_t addr;
-    float fp_index;
-    int8_t fp_to_peak;
-    float mc;
-    // 接收信号强度 dBm
-    float rx_rssi;
-    // 第一路径信号强度 dBm
-    float fp_rssi;
-    float uwb_clock_offset_ppm;
-    float mcu_clock_offset_ppm;
-    // 近期该信标信号的收包率 0~1
-    float rx_rate;
-  } datas[UB_ANCHOR_SIGNAL_DATA_MAX];
-} UBDataAnchorSignal;
 
 // 标签到信标间的距离差数据。一次定位的全部距离差可能拆成多条消息输出，
 // 同一次定位的各条消息 begin_time_us 相同，由 group_index / group_count 区分
