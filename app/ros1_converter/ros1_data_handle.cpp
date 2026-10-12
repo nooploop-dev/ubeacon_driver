@@ -26,8 +26,8 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
       nh_->advertise<ubeacon_driver::Tag2AnchorPdoa>("tag2anchor_pdoa", 50);
   imu_pub_ = nh_->advertise<ubeacon_driver::Imu>("imu", 50);
   attitude_pub_ = nh_->advertise<ubeacon_driver::Attitude>("attitude", 50);
-  anchor_ddoas_pub_ =
-      nh_->advertise<ubeacon_driver::AnchorDdoas>("anchor_ddoas", 50);
+  anchor2tag_ddoa_pub_ =
+      nh_->advertise<ubeacon_driver::Anchor2TagDdoa>("anchor2tag_ddoa", 50);
   anchor_pos_pub_ =
       nh_->advertise<ubeacon_driver::AnchorPos>("anchor_pos", 50);
   global_time_status_pub_ = nh_->advertise<ubeacon_driver::GlobalTimeStatus>(
@@ -51,6 +51,7 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
       "iic_interface_param", 50);
   uwb_interface_param_pub_ = nh_->advertise<ubeacon_driver::UwbInterfaceParam>(
       "uwb_interface_param", 50);
+  twr_param_pub_ = nh_->advertise<ubeacon_driver::TwrParam>("twr_param", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = nh_->subscribe("find", 50, &Ros1DataHandle::on_find, this);
@@ -94,6 +95,8 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
   uwb_interface_param_read_sub_ =
       nh_->subscribe("uwb_interface_param_read", 50,
                      &Ros1DataHandle::on_uwb_interface_param_read, this);
+  twr_param_read_sub_ = nh_->subscribe(
+      "twr_param_read", 50, &Ros1DataHandle::on_twr_param_read, this);
 }
 
 // ---------------- 设备 -> 用户(^) ----------------
@@ -110,12 +113,6 @@ void Ros1DataHandle::dispatch(const UBDataLocationResult &data) {
   msg.map_id = data.map_id;
   msg.error_code = data.error_code;
   msg.area_id = data.area_id;
-  msg.anchors.resize(data.anchor_count);
-  for (int i = 0; i < data.anchor_count; i++) {
-    msg.anchors[i].addr = data.anchors[i].addr;
-    msg.anchors[i].rx_rssi = data.anchors[i].rx_rssi;
-    msg.anchors[i].rx_rate = data.anchors[i].rx_rate;
-  }
   location_result_pub_.publish(msg);
 
   geometry_msgs::PoseStamped pose;
@@ -136,12 +133,16 @@ void Ros1DataHandle::dispatch(const UBDataHeartbeat &data) {
   msg.reset_info_dirty = data.reset_info_dirty;
   msg.assert_info_dirty = data.assert_info_dirty;
   msg.restart_cnt = data.restart_cnt;
-  msg.is_sleeping = data.is_sleeping;
+  msg.user_request_sleep = data.user_request_sleep;
+  msg.hardware_enabled_motion = data.hardware_enabled_motion;
   msg.hardware_enabled_uart = data.hardware_enabled_uart;
   msg.hardware_enabled_iic = data.hardware_enabled_iic;
   msg.hardware_enabled_uwb = data.hardware_enabled_uwb;
   msg.hardware_enabled_ble = data.hardware_enabled_ble;
   msg.hardware_enabled_four_g = data.hardware_enabled_four_g;
+  msg.hardware_enabled_baro = data.hardware_enabled_baro;
+  msg.hardware_enabled_imu = data.hardware_enabled_imu;
+  msg.hardware_enabled_gnss = data.hardware_enabled_gnss;
   msg.firmware_series = data.firmware_series;
   std::memcpy(msg.firmware_version.data(), data.firmware_version,
               sizeof(data.firmware_version));
@@ -155,6 +156,9 @@ void Ros1DataHandle::dispatch(const UBDataHeartbeat &data) {
       data.recent_peer_global_time_error_occurred;
   msg.recent_peer_local_time_error_occurred =
       data.recent_peer_local_time_error_occurred;
+  msg.rtos_warn = data.rtos_warn;
+  msg.mcu_warn = data.mcu_warn;
+  msg.uwb_warn = data.uwb_warn;
   heartbeat_pub_.publish(msg);
 }
 
@@ -178,9 +182,19 @@ void Ros1DataHandle::dispatch(const UBDataAnchorSignal &data) {
 }
 
 void Ros1DataHandle::dispatch(const UBDataAnchor2TagSignal &data) {
-  ubeacon_driver::Anchor2TagSignal msg;
+  using Msg = ubeacon_driver::Anchor2TagSignal;
+  static_assert(Msg::LOCATION_MODE_TDOA ==
+                    static_cast<uint8_t>(UB_LOCATION_MODE_TDOA),
+                "LOCATION_MODE_TDOA mismatch");
+  static_assert(Msg::LOCATION_MODE_TWR ==
+                    static_cast<uint8_t>(UB_LOCATION_MODE_TWR),
+                "LOCATION_MODE_TWR mismatch");
+  static_assert(Msg::LOCATION_MODE_RSSI ==
+                    static_cast<uint8_t>(UB_LOCATION_MODE_RSSI),
+                "LOCATION_MODE_RSSI mismatch");
+  Msg msg;
   msg.begin_time_us = data.begin_time_us;
-  msg.time_slot_duration_us = data.time_slot_duration_us;
+  msg.location_mode = data.location_mode;
   msg.datas.resize(data.count);
   for (int i = 0; i < data.count; i++) {
     msg.datas[i].addr = data.datas[i].addr;
@@ -196,7 +210,6 @@ void Ros1DataHandle::dispatch(const UBDataAnchor2TagSignal &data) {
 void Ros1DataHandle::dispatch(const UBDataTag2AnchorDis &data) {
   ubeacon_driver::Tag2AnchorDis msg;
   msg.begin_time_us = data.begin_time_us;
-  msg.time_slot_duration_us = data.time_slot_duration_us;
   msg.datas.resize(data.count);
   for (int i = 0; i < data.count; i++) {
     msg.datas[i].addr = data.datas[i].addr;
@@ -208,7 +221,6 @@ void Ros1DataHandle::dispatch(const UBDataTag2AnchorDis &data) {
 void Ros1DataHandle::dispatch(const UBDataTag2AnchorPdoa &data) {
   ubeacon_driver::Tag2AnchorPdoa msg;
   msg.begin_time_us = data.begin_time_us;
-  msg.time_slot_duration_us = data.time_slot_duration_us;
   msg.datas.resize(data.count);
   for (int i = 0; i < data.count; i++) {
     const auto &d = data.datas[i];
@@ -219,17 +231,18 @@ void Ros1DataHandle::dispatch(const UBDataTag2AnchorPdoa &data) {
   tag2anchor_pdoa_pub_.publish(msg);
 }
 
-void Ros1DataHandle::dispatch(const UBDataAnchorDdoas &data) {
-  ubeacon_driver::AnchorDdoas msg;
+void Ros1DataHandle::dispatch(const UBDataAnchor2TagDdoa &data) {
+  ubeacon_driver::Anchor2TagDdoa msg;
   msg.begin_time_us = data.begin_time_us;
-  msg.time_slot_duration_us = data.time_slot_duration_us;
+  msg.group_count = data.group_count;
+  msg.group_index = data.group_index;
   msg.datas.resize(data.count);
   for (int i = 0; i < data.count; i++) {
     msg.datas[i].a0 = data.datas[i].a0;
     msg.datas[i].a1 = data.datas[i].a1;
     msg.datas[i].ddoa = data.datas[i].ddoa;
   }
-  anchor_ddoas_pub_.publish(msg);
+  anchor2tag_ddoa_pub_.publish(msg);
 }
 
 void Ros1DataHandle::dispatch(const UBDataAnchorPos &data) {
@@ -308,8 +321,6 @@ void Ros1DataHandle::dispatch(const UBDataParam &data) {
   msg.reset_interval = data.reset_interval;
   msg.min_sync_anchor_count = data.min_sync_anchor_count;
   msg.min_sniff_duty_cycle = data.min_sniff_duty_cycle;
-  msg.disable_anchor_data_output_with_result =
-      data.disable_anchor_data_output_with_result;
   msg.static_map_id = data.static_map_id;
   param_pub_.publish(msg);
 }
@@ -368,10 +379,15 @@ void Ros1DataHandle::dispatch(const UBDataUwbInterfaceParam &data) {
   msg.random_window_ms = data.random_window_ms;
   msg.max_rx_interval_ms = data.max_rx_interval_ms;
   msg.min_tx_interval_ms = data.min_tx_interval_ms;
+  uwb_interface_param_pub_.publish(msg);
+}
+
+void Ros1DataHandle::dispatch(const UBDataTwrParam &data) {
+  ubeacon_driver::TwrParam msg;
   msg.dis_frequency = data.dis_frequency;
   msg.dis_slot_count_max = data.dis_slot_count_max;
   msg.dis_remain_slot_count = data.dis_remain_slot_count;
-  uwb_interface_param_pub_.publish(msg);
+  twr_param_pub_.publish(msg);
 }
 
 // ---------------- 用户 -> 设备(v) ----------------
@@ -452,8 +468,6 @@ void Ros1DataHandle::on_param_write(const ubeacon_driver::Param::ConstPtr &msg) 
   data.reset_interval = msg->reset_interval;
   data.min_sync_anchor_count = msg->min_sync_anchor_count;
   data.min_sniff_duty_cycle = msg->min_sniff_duty_cycle;
-  data.disable_anchor_data_output_with_result =
-      msg->disable_anchor_data_output_with_result;
   data.static_map_id = msg->static_map_id;
   main_common_send_msg(UB_MSG_WRITE_PARAM, &data, sizeof(data));
 }
@@ -528,6 +542,11 @@ void Ros1DataHandle::on_uwb_interface_param_read(
   main_common_send_msg(UB_MSG_READ_UWB_INTERFACE_PARAM, nullptr, 0);
 }
 
+void Ros1DataHandle::on_twr_param_read(const std_msgs::Empty::ConstPtr &msg) {
+  (void)msg;
+  main_common_send_msg(UB_MSG_READ_TWR_PARAM, nullptr, 0);
+}
+
 // ---------------- 驱动回调 ----------------
 
 void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
@@ -561,8 +580,8 @@ void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
   case UB_MSG_ATTITUDE:
     self->dispatch(*static_cast<const UBDataAttitude *>(data));
     break;
-  case UB_MSG_ANCHOR_DDOAS:
-    self->dispatch(*static_cast<const UBDataAnchorDdoas *>(data));
+  case UB_MSG_ANCHOR2TAG_DDOA:
+    self->dispatch(*static_cast<const UBDataAnchor2TagDdoa *>(data));
     break;
   case UB_MSG_ANCHOR_POS:
     self->dispatch(*static_cast<const UBDataAnchorPos *>(data));
@@ -593,6 +612,9 @@ void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_UWB_INTERFACE_PARAM:
     self->dispatch(*static_cast<const UBDataUwbInterfaceParam *>(data));
+    break;
+  case UB_MSG_TWR_PARAM:
+    self->dispatch(*static_cast<const UBDataTwrParam *>(data));
     break;
   default:
     break;

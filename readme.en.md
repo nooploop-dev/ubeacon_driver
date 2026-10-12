@@ -258,14 +258,14 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 
 | Topic | Message Type | Description |
 | --- | --- | --- |
-| `~/location_result` | `LocationResult` | Positioning result (position/velocity/noise/anchors used) |
+| `~/location_result` | `LocationResult` | Positioning result (position/velocity/noise) |
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | The same result as a standard message, for direct display in rviz |
 | `~/anchor_pos` | `AnchorPos` | Anchor coordinates received by the tag |
 | `~/anchor_signal` | `AnchorSignal` | Signal data of all anchors for one positioning cycle |
 | `~/anchor2tag_signal` | `Anchor2TagSignal` | Signal data emitted each time anchor signals used for positioning are received |
 | `~/tag2anchor_dis` | `Tag2AnchorDis` | Tag-to-anchor ranging results |
 | `~/tag2anchor_pdoa` | `Tag2AnchorPdoa` | Tag-to-anchor angle (PDoA) results |
-| `~/anchor_ddoas` | `AnchorDdoas` | Distance differences from the tag to anchor pairs |
+| `~/anchor2tag_ddoa` | `Anchor2TagDdoa` | Distance differences from the tag to anchor pairs; one fix may span several messages |
 | `~/imu` | `Imu` | Raw IMU data |
 | `~/attitude` | `Attitude` | Attitude quaternion and noise |
 | `~/global_time_status` | `GlobalTimeStatus` | Global time synchronization status |
@@ -278,6 +278,7 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/uart_interface_param` | `UartInterfaceParam` | UART parameters |
 | `~/iic_interface_param` | `IicInterfaceParam` | IIC parameters |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | UWB parameters |
+| `~/twr_param` | `TwrParam` | Tag-initiated ranging parameters |
 | `~/user_data_from_device` | `UserData` | User-defined data reported by the device |
 
 **User → Device** (publish to send commands)
@@ -301,6 +302,7 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/uart_interface_param_read` | `std_msgs/Empty` | Read UART parameters |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | Read IIC parameters |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | Read UWB parameters |
+| `~/twr_param_read` | `std_msgs/Empty` | Read tag-initiated ranging parameters |
 
 ## Serial Monitor (monitor)
 
@@ -345,7 +347,7 @@ Then in Foxglove choose **Open connection → Foxglove WebSocket** and enter `ws
 | `/anchor_signal` | JSON | Anchor signal strength / packet rate, for Plot panels |
 | `/heartbeat` | JSON | Battery and other status, for Plot panels |
 
-Anchor coordinates come from `UB_MSG_ANCHOR_POS`; they are cached and drawn into the 3D scene. Anchors that participated in the current fix are green, the rest grey.
+Anchor coordinates come from `UB_MSG_ANCHOR_POS`; they are cached and drawn into the 3D scene. Anchors in the latest `UB_MSG_ANCHOR2TAG_SIGNAL` are green (requires `output.anchor_signal`), the rest grey.
 
 ### Data Recording (MCAP)
 

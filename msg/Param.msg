@@ -19,5 +19,4 @@ uint8 update_interval_max       # s
 uint16 reset_interval           # s
 uint8 min_sync_anchor_count
 uint8 min_sniff_duty_cycle      # 百分比 0~100
-bool disable_anchor_data_output_with_result
 uint8 static_map_id             # 0 表示不固定

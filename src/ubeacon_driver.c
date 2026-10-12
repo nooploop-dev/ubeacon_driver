@@ -70,6 +70,10 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
   int *raw_data_size = &raw_size;
 
   switch (msg_id) {
+  case UB_MSG_RESET_PARAM:
+    // 空消息只写消息头
+    *raw_data_size = 0;
+    break;
   case UB_MSG_RESTART:
     UB_MSG_DATA_ENCODE(UBRawDataRestart, ub_data_restart_to_raw, UBDataRestart);
     break;
@@ -108,6 +112,10 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_LOCATION_RESULT:
     UB_MSG_DATA_ENCODE(UBRawDataLocationResult, ub_data_location_result_to_raw,
                        UBDataLocationResult);
+    break;
+  case UB_MSG_TWR_PARAM:
+    UB_MSG_DATA_ENCODE(UBRawDataTwrParam, ub_data_twr_param_to_raw,
+                       UBDataTwrParam);
     break;
   case UB_MSG_HEARTBEAT:
     UB_MSG_DATA_ENCODE(UBRawDataHeartbeat, ub_data_heartbeat_to_raw,
@@ -150,9 +158,9 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataRunTimeParam, ub_data_run_time_param_to_raw,
                        UBDataRunTimeParam);
     break;
-  case UB_MSG_ANCHOR_DDOAS:
-    UB_MSG_DATA_ENCODE(UBRawDataAnchorDdoas, ub_data_anchor_ddoas_to_raw,
-                       UBDataAnchorDdoas);
+  case UB_MSG_ANCHOR2TAG_DDOA:
+    UB_MSG_DATA_ENCODE(UBRawDataAnchor2TagDdoa, ub_data_anchor2tag_ddoa_to_raw,
+                       UBDataAnchor2TagDdoa);
     break;
   case UB_MSG_Z_MEASUREMENT:
     UB_MSG_DATA_ENCODE(UBRawDataZMeasurement, ub_data_z_measurement_to_raw,
@@ -197,7 +205,9 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_READ_UART_INTERFACE_PARAM:
   case UB_MSG_READ_IIC_INTERFACE_PARAM:
   case UB_MSG_READ_UWB_INTERFACE_PARAM:
+  case UB_MSG_READ_TWR_PARAM:
   case UB_MSG_READ_RUN_TIME_PARAM:
+  case UB_MSG_RESET_PARAM:
     // 读请求等空消息只写消息头
     *raw_data_size = 0;
     break;
@@ -229,6 +239,10 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataUwbInterfaceParam,
                        ub_data_uwb_interface_param_to_raw,
                        UBDataUwbInterfaceParam);
+    break;
+  case UB_MSG_WRITE_TWR_PARAM:
+    UB_MSG_DATA_ENCODE(UBRawDataTwrParam, ub_data_twr_param_to_raw,
+                       UBDataTwrParam);
     break;
   case UB_MSG_USER_DATA:
     UB_MSG_DATA_ENCODE(UBRawDataUserData, ub_data_user_data_to_raw,
@@ -269,6 +283,9 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   int data_size = -1;
 
   switch (msg_id) {
+  case UB_MSG_RESET_PARAM:
+    data_size = 0;
+    break;
   case UB_MSG_RESTART:
     UB_MSG_DATA_DECODE(UBRawDataRestart, ub_data_restart_from_raw,
                        UBDataRestart);
@@ -308,6 +325,10 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_LOCATION_RESULT:
     UB_MSG_DATA_DECODE(UBRawDataLocationResult,
                        ub_data_location_result_from_raw, UBDataLocationResult);
+    break;
+  case UB_MSG_TWR_PARAM:
+    UB_MSG_DATA_DECODE(UBRawDataTwrParam, ub_data_twr_param_from_raw,
+                       UBDataTwrParam);
     break;
   case UB_MSG_HEARTBEAT:
     UB_MSG_DATA_DECODE(UBRawDataHeartbeat, ub_data_heartbeat_from_raw,
@@ -350,9 +371,9 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
     UB_MSG_DATA_DECODE(UBRawDataRunTimeParam, ub_data_run_time_param_from_raw,
                        UBDataRunTimeParam);
     break;
-  case UB_MSG_ANCHOR_DDOAS:
-    UB_MSG_DATA_DECODE(UBRawDataAnchorDdoas, ub_data_anchor_ddoas_from_raw,
-                       UBDataAnchorDdoas);
+  case UB_MSG_ANCHOR2TAG_DDOA:
+    UB_MSG_DATA_DECODE(UBRawDataAnchor2TagDdoa,
+                       ub_data_anchor2tag_ddoa_from_raw, UBDataAnchor2TagDdoa);
     break;
   case UB_MSG_Z_MEASUREMENT:
     UB_MSG_DATA_DECODE(UBRawDataZMeasurement, ub_data_z_measurement_from_raw,
@@ -392,7 +413,9 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_READ_UART_INTERFACE_PARAM:
   case UB_MSG_READ_IIC_INTERFACE_PARAM:
   case UB_MSG_READ_UWB_INTERFACE_PARAM:
+  case UB_MSG_READ_TWR_PARAM:
   case UB_MSG_READ_RUN_TIME_PARAM:
+  case UB_MSG_RESET_PARAM:
     data_size = 0;
     break;
   case UB_MSG_RESTART:
@@ -424,6 +447,10 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
     UB_MSG_DATA_DECODE(UBRawDataUwbInterfaceParam,
                        ub_data_uwb_interface_param_from_raw,
                        UBDataUwbInterfaceParam);
+    break;
+  case UB_MSG_WRITE_TWR_PARAM:
+    UB_MSG_DATA_DECODE(UBRawDataTwrParam, ub_data_twr_param_from_raw,
+                       UBDataTwrParam);
     break;
   case UB_MSG_USER_DATA:
     UB_MSG_DATA_DECODE(UBRawDataUserData, ub_data_user_data_from_raw,

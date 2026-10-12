@@ -258,14 +258,14 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 
 | 话题 | 消息类型 | 说明 |
 | --- | --- | --- |
-| `~/location_result` | `LocationResult` | 定位结果（位置/速度/噪声/参与定位的信标） |
+| `~/location_result` | `LocationResult` | 定位结果（位置/速度/噪声） |
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | 同一份定位结果的标准消息，供 rviz 直接显示 |
 | `~/anchor_pos` | `AnchorPos` | 标签收到的信标坐标信息 |
 | `~/anchor_signal` | `AnchorSignal` | 每次定位对应的所有信标信号数据 |
 | `~/anchor2tag_signal` | `Anchor2TagSignal` | 每次收到参与定位的信标信号后输出的信号数据 |
 | `~/tag2anchor_dis` | `Tag2AnchorDis` | 标签与信标之间的测距结果 |
 | `~/tag2anchor_pdoa` | `Tag2AnchorPdoa` | 标签与信标之间的测角结果 |
-| `~/anchor_ddoas` | `AnchorDdoas` | 标签到信标间的距离差 |
+| `~/anchor2tag_ddoa` | `Anchor2TagDdoa` | 标签到信标间的距离差，一次定位可能分多条输出 |
 | `~/imu` | `Imu` | imu 原始数据 |
 | `~/attitude` | `Attitude` | 姿态四元数及噪声 |
 | `~/global_time_status` | `GlobalTimeStatus` | 全局时间同步状态 |
@@ -278,6 +278,7 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/uart_interface_param` | `UartInterfaceParam` | 串口通信参数 |
 | `~/iic_interface_param` | `IicInterfaceParam` | iic 通信参数 |
 | `~/uwb_interface_param` | `UwbInterfaceParam` | uwb 通信参数 |
+| `~/twr_param` | `TwrParam` | 标签主动测距参数 |
 | `~/user_data_from_device` | `UserData` | 设备上报的用户自定义数据 |
 
 **用户 → 设备**（发布以下发命令）
@@ -301,6 +302,7 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/uart_interface_param_read` | `std_msgs/Empty` | 读取串口通信参数 |
 | `~/iic_interface_param_read` | `std_msgs/Empty` | 读取 iic 通信参数 |
 | `~/uwb_interface_param_read` | `std_msgs/Empty` | 读取 uwb 通信参数 |
+| `~/twr_param_read` | `std_msgs/Empty` | 读取标签主动测距参数 |
 
 ## 串口监视器（monitor）
 
@@ -345,7 +347,7 @@ cmake -B build && cmake --build build
 | `/anchor_signal` | JSON | 信标信号强度/收包率，供 Plot 面板绘制曲线 |
 | `/heartbeat` | JSON | 电量等状态，供 Plot 面板绘制曲线 |
 
-信标坐标来自 `UB_MSG_ANCHOR_POS`，会被缓存并画进 3D 场景；参与本次定位的信标标绿，其余标灰。
+信标坐标来自 `UB_MSG_ANCHOR_POS`，会被缓存并画进 3D 场景；最近一条 `UB_MSG_ANCHOR2TAG_SIGNAL` 中的信标标绿（需开启 `output.anchor_signal`），其余标灰。
 
 ### 数据录制（MCAP）
 

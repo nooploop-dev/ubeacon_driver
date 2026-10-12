@@ -6,4 +6,3 @@ float32[3] vel_noise   # m/s
 uint8 map_id
 uint8 error_code
 uint8 area_id
-LocationAnchor[] anchors

@@ -4,12 +4,17 @@ bool need_restart
 bool reset_info_dirty
 bool assert_info_dirty
 uint8 restart_cnt
-bool is_sleeping
+bool user_request_sleep
+# 外设最终使能情况
+bool hardware_enabled_motion
 bool hardware_enabled_uart
 bool hardware_enabled_iic
 bool hardware_enabled_uwb
 bool hardware_enabled_ble
 bool hardware_enabled_four_g
+bool hardware_enabled_baro
+bool hardware_enabled_imu
+bool hardware_enabled_gnss
 uint8 firmware_series
 uint8[4] firmware_version
 uint8[6] uid
@@ -20,3 +25,7 @@ bool recent_rx_data_error_occurred
 bool recent_global_time_error_occurred
 bool recent_peer_global_time_error_occurred
 bool recent_peer_local_time_error_occurred
+# 设备自检标志
+bool rtos_warn
+bool mcu_warn
+bool uwb_warn

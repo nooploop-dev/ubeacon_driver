@@ -1,10 +1,12 @@
 #include "foxglove_viz.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <foxglove/channel.hpp>
 #include <foxglove/error.hpp>
@@ -32,6 +34,8 @@ std::string s_frame_id;
 
 // 信标坐标由 UB_MSG_ANCHOR_POS 陆续上报，缓存下来一并画进 3D 场景
 std::map<ub_addr_t, std::array<float, 3>> s_anchors;
+// 最近一条 Anchor2TagSignal 中的信标，3D 场景中标绿
+std::vector<ub_addr_t> s_signal_anchors;
 
 // Foxglove 3D 面板需要一个根坐标系，定位结果所在的 frame 挂在它下面
 constexpr char ROOT_FRAME[] = "world";
@@ -57,8 +61,7 @@ const std::string LOCATION_RESULT_SCHEMA = R"({
     "vel_noise_x": {"type": "number"}, "vel_noise_y": {"type": "number"}, "vel_noise_z": {"type": "number"},
     "map_id": {"type": "number"},
     "error_code": {"type": "number"},
-    "area_id": {"type": "number"},
-    "anchor_count": {"type": "number"}
+    "area_id": {"type": "number"}
   }
 })";
 
@@ -90,7 +93,7 @@ const std::string HEARTBEAT_SCHEMA = R"({
     "battery_voltage": {"type": "number"},
     "battery_charging": {"type": "boolean"},
     "restart_cnt": {"type": "number"},
-    "is_sleeping": {"type": "boolean"}
+    "user_request_sleep": {"type": "boolean"}
   }
 })";
 
@@ -239,19 +242,14 @@ void publish(const UBDataLocationResult &data) {
     entity.spheres = {tag};
     entity.lines = {vel};
 
-    // 参与本次定位的信标标绿，其余已知信标标灰
     fgm::SceneEntity anchors;
     anchors.timestamp = ts;
     anchors.frame_id = s_frame_id;
     anchors.id = "anchors";
     for (const auto &kv : s_anchors) {
-      bool used = false;
-      for (int i = 0; i < data.anchor_count; ++i) {
-        if (data.anchors[i].addr == kv.first) {
-          used = true;
-          break;
-        }
-      }
+      const bool used =
+          std::find(s_signal_anchors.begin(), s_signal_anchors.end(),
+                    kv.first) != s_signal_anchors.end();
       fgm::CubePrimitive cube;
       cube.pose = fgm::Pose{fgm::Vector3{kv.second[0], kv.second[1],
                                          kv.second[2]},
@@ -273,13 +271,12 @@ void publish(const UBDataLocationResult &data) {
                        R"("vel_x":{},"vel_y":{},"vel_z":{},)"
                        R"("pos_noise_x":{},"pos_noise_y":{},"pos_noise_z":{},)"
                        R"("vel_noise_x":{},"vel_noise_y":{},"vel_noise_z":{},)"
-                       R"("map_id":{},"error_code":{},"area_id":{},)"
-                       R"("anchor_count":{}}})",
+                       R"("map_id":{},"error_code":{},"area_id":{}}})",
                        data.local_time_us, data.pos[0], data.pos[1], data.pos[2],
                        data.vel[0], data.vel[1], data.vel[2], data.pos_noise[0],
                        data.pos_noise[1], data.pos_noise[2], data.vel_noise[0],
                        data.vel_noise[1], data.vel_noise[2], data.map_id,
-                       data.error_code, data.area_id, data.anchor_count));
+                       data.error_code, data.area_id));
 }
 
 void publish(const UBDataAnchorPos &data) {
@@ -304,14 +301,21 @@ void publish(const UBDataAnchorSignal &data) {
                data.local_time_us, data.area_id, data.count, datas));
 }
 
+void publish(const UBDataAnchor2TagSignal &data) {
+  s_signal_anchors.clear();
+  for (int i = 0; i < data.count; ++i) {
+    s_signal_anchors.push_back(data.datas[i].addr);
+  }
+}
+
 void publish(const UBDataHeartbeat &data) {
   log_json(s_heartbeat_ch,
            fmt::format(R"({{"battery_percent":{},"battery_voltage":{},)"
                        R"("battery_charging":{},"restart_cnt":{},)"
-                       R"("is_sleeping":{}}})",
+                       R"("user_request_sleep":{}}})",
                        data.battery_percent, data.battery_voltage,
                        data.battery_charging, data.restart_cnt,
-                       data.is_sleeping));
+                       data.user_request_sleep));
 }
 
 void shutdown() {

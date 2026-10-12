@@ -10,13 +10,14 @@ using Catch::Approx;
 
 // 心跳线格式共 16 字节：
 //   [0] battery_percent:7 | battery_charging:1
-//   [1] need_restart / reset_info_dirty / assert_info_dirty / restart_cnt:3 / is_sleeping
+//   [1] need_restart / reset_info_dirty / assert_info_dirty / restart_cnt:3 /
+//       user_request_sleep / hardware_enabled_motion
 //   [2] hardware_enabled_*
 //   [3] firmware_series
 //   [4..7]  firmware_version[4]
 //   [8..13] uid[6]
 //   [14] _battery_voltage
-//   [15] recent_*_error_occurred
+//   [15] recent_*_error_occurred / rtos_warn / mcu_warn / uwb_warn
 static constexpr int kHeartbeatRawSize = 16;
 
 TEST_CASE("old firmware: short payload is zero-filled") {
@@ -82,6 +83,24 @@ TEST_CASE("old firmware: 18-byte LocationParam decodes, new fields zeroed") {
   REQUIRE(d.reset_interval == 3000);
   REQUIRE(d.static_map_id == 0);
   REQUIRE(d.output.attitude == false);
+}
+
+TEST_CASE("pre-2.15.0.9 LocationResult with trailing anchors is truncated") {
+  // 旧固件在 34 字节之后还附带 reserved、anchor_count 与 anchors，驱动只取前 34 字节
+  std::vector<uint8_t> payload(72, 0);
+  payload[32] = 3;    // map_id
+  payload[33] = 0x21; // error_code = 1, area_id = 2
+  payload[35] = 1;    // 旧 anchor_count
+  payload[36] = 0x01; // 旧 anchors[0].addr
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_LOCATION_RESULT, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  REQUIRE(cap.msgs[0].data.size() == sizeof(UBDataLocationResult));
+  const auto &d =
+      *reinterpret_cast<const UBDataLocationResult *>(cap.msgs[0].data.data());
+  REQUIRE(d.map_id == 3);
+  REQUIRE(d.error_code == 1);
+  REQUIRE(d.area_id == 2);
 }
 
 TEST_CASE("empty payload on a data message decodes to a zeroed struct") {

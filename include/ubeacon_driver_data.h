@@ -18,8 +18,9 @@ extern "C" {
 // write消息和响应消息通常共用一个ID，结构体也共用
 // 单个方向上，每个消息ID都是唯一的，对应唯一的 UBData* 结构；
 enum {
-  UB_MSG_RESTART = 2, // v^
-  UB_MSG_FIND = 3,    // v^
+  UB_MSG_RESTART = 2,     // v^
+  UB_MSG_FIND = 3,        // v^
+  UB_MSG_RESET_PARAM = 4, // v^
 
   UB_MSG_ANCHOR_POS = 51,         // ^
   UB_MSG_GLOBAL_TIME_STATUS = 58, // ^
@@ -42,6 +43,10 @@ enum {
 
   UB_MSG_LOCATION_RESULT = 68, // ^
 
+  UB_MSG_READ_TWR_PARAM = 69,                // v
+  UB_MSG_WRITE_TWR_PARAM = 70,               // v
+  UB_MSG_TWR_PARAM = UB_MSG_WRITE_TWR_PARAM, // ^
+
   UB_MSG_HEARTBEAT = 78, // ^
 
   UB_MSG_READ_UWB_INTERFACE_PARAM = 79,                          // v
@@ -50,7 +55,7 @@ enum {
 
   UB_MSG_USER_DATA = 81, // v^
 
-  UB_MSG_ANCHOR2TAG_SIGNAL = 89, // ^
+  UB_MSG_ANCHOR2TAG_SIGNAL = 90, // ^
   UB_MSG_TAG2ANCHOR_DIS = 91,    // ^
   UB_MSG_TAG2ANCHOR_PDOA = 92,   // ^
 
@@ -60,7 +65,7 @@ enum {
   UB_MSG_WRITE_RUN_TIME_PARAM = 101,                   // v
   UB_MSG_RUN_TIME_PARAM = UB_MSG_WRITE_RUN_TIME_PARAM, // ^
 
-  UB_MSG_ANCHOR_DDOAS = 104, // ^
+  UB_MSG_ANCHOR2TAG_DDOA = 104, // ^
 
   UB_MSG_READ_HARDWARE_PERIPHERAL_CONFIG = 105, // v
   UB_MSG_HARDWARE_PERIPHERAL_CONFIG = 106,      // ^
@@ -76,13 +81,12 @@ enum {
   UB_MSG_ATTITUDE = 116, // ^
 };
 
-#define UB_LOCATION_RESULT_ANCHOR_MAX 9
 #define UB_ANCHOR_SIGNAL_DATA_MAX 9
 #define UB_ANCHOR2TAG_SIGNAL_DATA_MAX 9
 #define UB_TAG2ANCHOR_DIS_DATA_MAX 9
 #define UB_TAG2ANCHOR_PDOA_DATA_MAX 9
 #define UB_TAG2ANCHOR_PDOA_COUNT_MAX 4
-#define UB_ANCHOR_DDOAS_DATA_MAX 10
+#define UB_ANCHOR2TAG_DDOA_DATA_MAX 10
 #define UB_USER_DATA_PAYLOAD_MAX 64
 
 // 重启设备，部分配置参数变更后需要重启才会生效
@@ -146,8 +150,6 @@ typedef struct {
   // 嗅探占空比下限，百分比
   // 0~100；非零表示即使已与足够多信标同步也周期嗅探，以便发现新信标
   uint8_t min_sniff_duty_cycle;
-  // 定位结果中不再附带参与定位的信标列表（LocationResult.anchor_count 为 0）
-  bool disable_anchor_data_output_with_result;
   // 标签固定在某个地图活动时可指定，避免受其他地图影响，0 表示不固定
   uint8_t static_map_id;
 } UBDataParam;
@@ -173,15 +175,6 @@ typedef struct {
   // 使能 tag_pos_even_error 时定位失败仍输出，此时非零
   uint8_t error_code;
   uint8_t area_id;
-  // anchors 中的有效元素数量
-  uint8_t anchor_count;
-  struct {
-    ub_addr_t addr;
-    // 接收信号强度 dBm
-    float rx_rssi;
-    // 收包率 0~1
-    float rx_rate;
-  } anchors[UB_LOCATION_RESULT_ANCHOR_MAX];
 } UBDataLocationResult;
 
 // ROM 外设软件配置
@@ -225,19 +218,22 @@ typedef struct {
 typedef struct {
   // 发送信号的随机窗口 ms，避免同时发送干扰，0 表示不延迟立即发送，1~5000
   uint16_t random_window_ms;
-  // 两次打开接收的最大间隔 ms，0 表示不限制，每次发送信号后都打开接收；50ms 分辨率，上限 12750
+  // 两次打开接收的最大间隔 ms，0 表示不限制，每次发送信号后都打开接收；50ms
+  // 分辨率，上限 12750
   uint16_t max_rx_interval_ms;
   // 标签数量较多、频率较高时，限制标签 uwb 回传的最小间隔 ms
   uint16_t min_tx_interval_ms;
-  // 标签主动发起测距的频率 Hz
-  float dis_frequency;
-  // 标签主动发起测距允许的最大时隙数量，越大支持同时测距的信标越多但功耗越高，
-  // >0 表示启用测距，上限 18
-  uint8_t dis_slot_count_max;
-  // 末尾保留不分配的时隙数量，用于新信标随机接入，>=1，dis_slot_count_max>0
-  // 时有效
-  uint8_t dis_remain_slot_count;
 } UBDataUwbInterfaceParam;
+
+// ROM 标签主动测距参数，测距与 uwb 回传是相互独立的功能
+typedef struct {
+  // 主动发起测距的频率 Hz，与 dis_slot_count_max 同时 >0 时启用测距
+  float dis_frequency;
+  // 每轮测距允许的最大时隙数量，越大支持同时测距的信标越多但功耗越高，上限 9
+  uint8_t dis_slot_count_max;
+  // 末尾保留不分配的时隙数量，用于新信标随机接入，>=1
+  uint8_t dis_remain_slot_count;
+} UBDataTwrParam;
 
 // 心跳消息，5s 定时发送到后台
 typedef struct {
@@ -251,14 +247,20 @@ typedef struct {
   bool assert_info_dirty;
   // 任何原因重启计数都会 +1
   uint8_t restart_cnt;
-  // 收到 StateControl 后跟随其 sleep 变化
-  bool is_sleeping;
-  // 用户通过硬件 IO 选定使能的接口情况
+  // 用户是否通过 StateControl 请求睡眠，跟随其 sleep 变化；
+  // 设备实际是否工作还受电源开关、静止检测、固件更新等影响
+  bool user_request_sleep;
+  // 外设最终使能情况，即软件配置与硬件配置合并后的结果，同
+  // FINAL_PERIPHERAL_CONFIG
+  bool hardware_enabled_motion;
   bool hardware_enabled_uart;
   bool hardware_enabled_iic;
   bool hardware_enabled_uwb;
   bool hardware_enabled_ble;
   bool hardware_enabled_four_g;
+  bool hardware_enabled_baro;
+  bool hardware_enabled_imu;
+  bool hardware_enabled_gnss;
   uint8_t firmware_series;
   uint8_t firmware_version[4];
   uint8_t uid[UB_UID_SIZE];
@@ -275,6 +277,10 @@ typedef struct {
   bool recent_peer_global_time_error_occurred;
   // 收到的其他节点本地时间不可靠
   bool recent_peer_local_time_error_occurred;
+  // 设备自检标志：rtos / mcu / uwb 模块可能异常
+  bool rtos_warn;
+  bool mcu_warn;
+  bool uwb_warn;
 } UBDataHeartbeat;
 
 // 用户数传
@@ -306,15 +312,15 @@ typedef struct {
   } datas[UB_ANCHOR_SIGNAL_DATA_MAX];
 } UBDataAnchorSignal;
 
-// 以下几个消息对应信标信号成组先后到达的一次定位/测距：
-// begin_time_us 为组内首个信号的时间，time_slot_duration_us
-// 为组内相邻信号的间隔， 第 i 个元素对应的信号时间 = begin_time_us + i *
-// time_slot_duration_us
-
-// 信标之间的距离差数据
+// 标签到信标间的距离差数据。一次定位的全部距离差可能拆成多条消息输出，
+// 同一次定位的各条消息 begin_time_us 相同，由 group_index / group_count 区分
 typedef struct {
+  // 对应定位结果的 local_time_us
   ub_local_time_us_t begin_time_us;
-  uint16_t time_slot_duration_us;
+  // 本次定位拆分出的消息条数
+  uint8_t group_count;
+  // 本条消息的序号，从 0 开始
+  uint8_t group_index;
   // datas 中的有效元素数量
   uint8_t count;
   struct {
@@ -322,21 +328,34 @@ typedef struct {
     ub_addr_t a1;
     // ddoa = dis_tag_to_a1 - dis_tag_to_a0，单位 m
     float ddoa;
-  } datas[UB_ANCHOR_DDOAS_DATA_MAX];
-} UBDataAnchorDdoas;
+  } datas[UB_ANCHOR2TAG_DDOA_DATA_MAX];
+} UBDataAnchor2TagDdoa;
+
+// Anchor2TagSignal 中信号来源的定位模式，决定 begin_time_us 与 rx_rate 的含义
+typedef enum {
+  // begin_time_us 为本轮 ccp 的开始时间，rx_rate 为 ccp 收包率
+  UB_LOCATION_MODE_TDOA,
+  // begin_time_us 为标签发出 poll 的时刻，各信标应答在其后的时隙内到达，
+  // rx_rate 为测距应答收包率
+  UB_LOCATION_MODE_TWR,
+  // begin_time_us 为该信号的接收时刻，rx_rate 为信标广播的收包率，count 恒为 1
+  UB_LOCATION_MODE_RSSI,
+} ub_location_mode_e;
 
 // 每次收到需要参与定位的信标信号后输出的信号数据
 typedef struct {
   ub_local_time_us_t begin_time_us;
-  uint16_t time_slot_duration_us;
   // datas 中的有效元素数量
   uint8_t count;
+  // ub_location_mode_e
+  uint8_t location_mode;
   struct {
     ub_addr_t addr;
     // 接收信号强度 dBm
     float rx_rssi;
     // 第一路径信号强度 dBm
     float fp_rssi;
+    // 频偏取整到 1ppm，超出 ±127 时饱和到 ±127，NaN 表示无效
     float uwb_clock_offset_ppm;
     float mcu_clock_offset_ppm;
     // 近期该信标信号的收包率 0~1
@@ -346,8 +365,8 @@ typedef struct {
 
 // 标签与信标之间的测距结果
 typedef struct {
+  // 本轮测距的发起时间
   ub_local_time_us_t begin_time_us;
-  uint16_t time_slot_duration_us;
   // datas 中的有效元素数量
   uint8_t count;
   struct {
@@ -359,8 +378,8 @@ typedef struct {
 
 // 标签与信标之间的测角结果
 typedef struct {
+  // 本轮测距的发起时间
   ub_local_time_us_t begin_time_us;
-  uint16_t time_slot_duration_us;
   // datas 中的有效元素数量
   uint8_t count;
   struct {

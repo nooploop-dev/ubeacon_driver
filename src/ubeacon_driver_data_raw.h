@@ -14,17 +14,38 @@ extern "C" {
 #endif
 
 #include "ubeacon_driver_data.h"
+#include <math.h> // 仅用 NAN 宏，不调用任何 libm 函数
 #include <stddef.h>
 #include <string.h>
 
 // ---------------- 转换辅助 ----------------
 
-// 四舍五入，避免引入 <math.h>（嵌入式侧无需链接 libm）
+// 四舍五入，自己实现以免链接 libm
 static inline int32_t ub_round_i32(float v) {
   return (int32_t)(v < 0.0f ? v - 0.5f : v + 0.5f);
 }
 
 static inline int ub_min_int(int a, int b) { return a < b ? a : b; }
+
+// 整数 ppm 频偏的线上无效值，有效值只用 [-127, 127]
+#define UB_PPM_INT8_INVALID (-128)
+
+static inline float ub_ppm_from_int8(int8_t v) {
+  return v == UB_PPM_INT8_INVALID ? NAN : (float)v;
+}
+// 与固件 proto::ppm_to_int8 一致
+static inline int8_t ub_ppm_to_int8(float ppm) {
+  if (ppm != ppm) { // NaN
+    return UB_PPM_INT8_INVALID;
+  }
+  if (ppm <= -127.0f) {
+    return -127;
+  }
+  if (ppm >= 127.0f) {
+    return 127;
+  }
+  return (int8_t)ub_round_i32(ppm);
+}
 
 // ---------------- 线格式结构 ----------------
 
@@ -40,9 +61,9 @@ typedef struct {
 } UBRawDataFind;
 
 // 未在 UBDataParam 中公开的字段（expect_location_frequency / arg* /
-// init_point_count / map_switch_window / locate_with_all_maps / output_delay）
-// 仍占据线上位置：读取时忽略，写入时由 to_raw 填固件默认值。
-// 驱动无状态，因此每次写参数都会把这些隐藏字段恢复为默认值。
+// init_point_count / map_switch_window / locate_with_all_maps /
+// deprecated_* / output_delay_ms）仍占据线上位置：读取时忽略，写入时由
+// to_raw 填固件默认值。驱动无状态，因此每次写参数都会把这些隐藏字段恢复为默认值。
 typedef struct {
   float expect_location_frequency;
   float expect_z;
@@ -70,10 +91,10 @@ typedef struct {
   uint8_t init_point_count;
   uint8_t map_switch_window;
   uint8_t locate_with_all_maps : 1;
-  uint8_t disable_anchor_data_output_with_result : 1;
+  uint8_t deprecated_disable_anchor_data_output_with_result : 1;
   uint8_t : 0;
   uint8_t static_map_id;
-  uint8_t _output_delay; // output_delay = _output_delay / 1000
+  uint8_t output_delay_ms;
   uint8_t output_imu : 1;
   uint8_t output_attitude : 1;
   uint8_t output_dis : 1;
@@ -94,14 +115,6 @@ typedef struct {
   uint8_t map_id;
   uint8_t error_code : 4;
   uint8_t area_id : 4;
-  uint8_t reserved;
-  uint8_t anchor_count : 4;
-  uint8_t : 0;
-  struct {
-    ub_addr_t addr;
-    uint8_t _rx_rssi; // rx_rssi = _rx_rssi / -2
-    uint8_t _rx_rate; // rx_rate = _rx_rate / 255
-  } anchors[UB_LOCATION_RESULT_ANCHOR_MAX];
 } UBRawDataLocationResult;
 
 typedef struct {
@@ -137,10 +150,13 @@ typedef struct {
   uint16_t min_tx_interval_ms;
   uint16_t reserved2;
   uint16_t random_window_ms;
+} UBRawDataUwbInterfaceParam;
+
+typedef struct {
   float dis_frequency;
   uint8_t dis_slot_count_max;
   uint8_t dis_remain_slot_count;
-} UBRawDataUwbInterfaceParam;
+} UBRawDataTwrParam;
 
 typedef struct {
   uint8_t battery_percent : 7;
@@ -149,14 +165,16 @@ typedef struct {
   uint8_t reset_info_dirty : 1;
   uint8_t assert_info_dirty : 1;
   uint8_t restart_cnt : 3;
-  uint8_t is_sleeping : 1;
-  uint8_t : 0;
+  uint8_t user_request_sleep : 1;
+  uint8_t hardware_enabled_motion : 1;
   uint8_t hardware_enabled_uart : 1;
   uint8_t hardware_enabled_iic : 1;
   uint8_t hardware_enabled_uwb : 1;
   uint8_t hardware_enabled_ble : 1;
   uint8_t hardware_enabled_four_g : 1;
-  uint8_t : 0;
+  uint8_t hardware_enabled_baro : 1;
+  uint8_t hardware_enabled_imu : 1;
+  uint8_t hardware_enabled_gnss : 1;
   uint8_t firmware_series;
   uint8_t firmware_version[4];
   uint8_t uid[UB_UID_SIZE];
@@ -166,7 +184,9 @@ typedef struct {
   uint8_t recent_global_time_error_occurred : 1;
   uint8_t recent_peer_global_time_error_occurred : 1;
   uint8_t recent_peer_local_time_error_occurred : 1;
-  uint8_t : 0;
+  uint8_t rtos_warn : 1;
+  uint8_t mcu_warn : 1;
+  uint8_t uwb_warn : 1;
 } UBRawDataHeartbeat;
 
 typedef struct {
@@ -193,36 +213,36 @@ typedef struct {
   } datas[UB_ANCHOR_SIGNAL_DATA_MAX];
 } UBRawDataAnchorSignal;
 
-// 成组信号消息共用的时间头：_time_slot_duration 单位 20us
 typedef struct {
   ub_local_time_us_t begin_time_us;
-  uint8_t _time_slot_duration; // time_slot_duration_us = 20 * _time_slot_duration
+  uint8_t group_count : 4;
+  uint8_t group_index : 4;
   uint8_t count;
   struct {
     ub_addr_t a0;
     ub_addr_t a1;
-    int16_t ddoa_cm; // ddoa = dis_tag_to_a1 - dis_tag_to_a0
-  } datas[UB_ANCHOR_DDOAS_DATA_MAX];
-} UBRawDataAnchorDdoas;
+    int16_t ddoa_cm;
+  } datas[UB_ANCHOR2TAG_DDOA_DATA_MAX];
+} UBRawDataAnchor2TagDdoa;
 
 typedef struct {
   ub_local_time_us_t begin_time_us;
-  uint8_t _time_slot_duration;
+  uint8_t reserved;
   uint8_t count : 4;
-  uint8_t : 0;
+  uint8_t location_mode : 4;
   struct {
     ub_addr_t addr;
-    uint8_t _rx_rssi;              // rx_rssi = -_rx_rssi * 0.5
-    uint8_t _fp_rssi;              // fp_rssi = -_fp_rssi * 0.5
-    int16_t _uwb_clock_offset_ppm; // = _uwb_clock_offset_ppm * 0.01
-    int16_t _mcu_clock_offset_ppm; // = _mcu_clock_offset_ppm * 0.01
-    uint8_t _rx_rate;              // rx_rate = _rx_rate / 255
+    uint8_t _rx_rssi;             // rx_rssi = -_rx_rssi * 0.5
+    uint8_t _fp_rssi;             // fp_rssi = -_fp_rssi * 0.5
+    int8_t uwb_clock_offset_ppm;  // 见 ub_ppm_from_int8
+    int8_t mcu_clock_offset_ppm;  // 见 ub_ppm_from_int8
+    uint8_t _rx_rate;             // rx_rate = _rx_rate / 255
   } datas[UB_ANCHOR2TAG_SIGNAL_DATA_MAX];
 } UBRawDataAnchor2TagSignal;
 
 typedef struct {
   ub_local_time_us_t begin_time_us;
-  uint8_t _time_slot_duration;
+  uint8_t reserved;
   uint8_t count : 4;
   uint8_t : 0;
   struct {
@@ -233,7 +253,7 @@ typedef struct {
 
 typedef struct {
   ub_local_time_us_t begin_time_us;
-  uint8_t _time_slot_duration;
+  uint8_t reserved;
   uint8_t count : 4;
   uint8_t : 0;
   struct {
@@ -346,8 +366,6 @@ static inline void ub_data_param_from_raw(const UBRawDataParam *raw,
   data->reset_interval = raw->reset_interval;
   data->min_sync_anchor_count = raw->min_sync_anchor_count;
   data->min_sniff_duty_cycle = raw->min_sniff_duty_cycle;
-  data->disable_anchor_data_output_with_result =
-      raw->disable_anchor_data_output_with_result != 0;
   data->static_map_id = raw->static_map_id;
 }
 static inline void ub_data_param_to_raw(const UBDataParam *data, void *buf,
@@ -382,8 +400,6 @@ static inline void ub_data_param_to_raw(const UBDataParam *data, void *buf,
   raw->reset_interval = data->reset_interval;
   raw->min_sync_anchor_count = data->min_sync_anchor_count;
   raw->min_sniff_duty_cycle = data->min_sniff_duty_cycle;
-  raw->disable_anchor_data_output_with_result =
-      data->disable_anchor_data_output_with_result ? 1 : 0;
   raw->static_map_id = data->static_map_id;
   *size = (int)sizeof(*raw);
 }
@@ -412,14 +428,6 @@ static inline void ub_data_location_result_from_raw(
   data->map_id = raw->map_id;
   data->error_code = raw->error_code;
   data->area_id = raw->area_id;
-  // anchor_count 为 4 位（最大 15），而数组仅 9 个元素，必须钳位以防越界
-  data->anchor_count =
-      (uint8_t)ub_min_int(raw->anchor_count, UB_LOCATION_RESULT_ANCHOR_MAX);
-  for (int i = 0; i < data->anchor_count; ++i) {
-    data->anchors[i].addr = raw->anchors[i].addr;
-    data->anchors[i].rx_rssi = raw->anchors[i]._rx_rssi / -2.0f;
-    data->anchors[i].rx_rate = raw->anchors[i]._rx_rate / 255.0f;
-  }
 }
 static inline void ub_data_location_result_to_raw(
     const UBDataLocationResult *data, void *buf, int *size) {
@@ -435,18 +443,7 @@ static inline void ub_data_location_result_to_raw(
   raw->map_id = data->map_id;
   raw->error_code = data->error_code & 0x0F;
   raw->area_id = data->area_id & 0x0F;
-  int count = ub_min_int(data->anchor_count, UB_LOCATION_RESULT_ANCHOR_MAX);
-  raw->anchor_count = count & 0x0F;
-  for (int i = 0; i < count; ++i) {
-    raw->anchors[i].addr = data->anchors[i].addr;
-    raw->anchors[i]._rx_rssi =
-        (uint8_t)ub_round_i32(data->anchors[i].rx_rssi * -2.0f);
-    raw->anchors[i]._rx_rate =
-        (uint8_t)ub_round_i32(data->anchors[i].rx_rate * 255.0f);
-  }
-  // 变长：只发送有效的 anchor
-  *size = (int)offsetof(UBRawDataLocationResult, anchors) +
-          count * (int)sizeof(raw->anchors[0]);
+  *size = (int)sizeof(*raw);
 }
 
 static inline void ub_data_peripheral_config_from_raw(
@@ -518,9 +515,6 @@ static inline void ub_data_uwb_interface_param_from_raw(
   data->random_window_ms = raw->random_window_ms;
   data->max_rx_interval_ms = (uint16_t)(raw->_max_rx_interval * 50);
   data->min_tx_interval_ms = raw->min_tx_interval_ms;
-  data->dis_frequency = raw->dis_frequency;
-  data->dis_slot_count_max = raw->dis_slot_count_max;
-  data->dis_remain_slot_count = raw->dis_remain_slot_count;
 }
 static inline void ub_data_uwb_interface_param_to_raw(
     const UBDataUwbInterfaceParam *data, void *buf, int *size) {
@@ -529,6 +523,19 @@ static inline void ub_data_uwb_interface_param_to_raw(
   raw->random_window_ms = data->random_window_ms;
   raw->_max_rx_interval = (uint8_t)(data->max_rx_interval_ms / 50);
   raw->min_tx_interval_ms = data->min_tx_interval_ms;
+  *size = (int)sizeof(*raw);
+}
+
+static inline void ub_data_twr_param_from_raw(const UBRawDataTwrParam *raw,
+                                              UBDataTwrParam *data) {
+  data->dis_frequency = raw->dis_frequency;
+  data->dis_slot_count_max = raw->dis_slot_count_max;
+  data->dis_remain_slot_count = raw->dis_remain_slot_count;
+}
+static inline void ub_data_twr_param_to_raw(const UBDataTwrParam *data,
+                                            void *buf, int *size) {
+  UBRawDataTwrParam *raw = (UBRawDataTwrParam *)buf;
+  memset(raw, 0, sizeof(*raw));
   raw->dis_frequency = data->dis_frequency;
   raw->dis_slot_count_max = data->dis_slot_count_max;
   raw->dis_remain_slot_count = data->dis_remain_slot_count;
@@ -543,12 +550,16 @@ static inline void ub_data_heartbeat_from_raw(const UBRawDataHeartbeat *raw,
   data->reset_info_dirty = raw->reset_info_dirty != 0;
   data->assert_info_dirty = raw->assert_info_dirty != 0;
   data->restart_cnt = raw->restart_cnt;
-  data->is_sleeping = raw->is_sleeping != 0;
+  data->user_request_sleep = raw->user_request_sleep != 0;
+  data->hardware_enabled_motion = raw->hardware_enabled_motion != 0;
   data->hardware_enabled_uart = raw->hardware_enabled_uart != 0;
   data->hardware_enabled_iic = raw->hardware_enabled_iic != 0;
   data->hardware_enabled_uwb = raw->hardware_enabled_uwb != 0;
   data->hardware_enabled_ble = raw->hardware_enabled_ble != 0;
   data->hardware_enabled_four_g = raw->hardware_enabled_four_g != 0;
+  data->hardware_enabled_baro = raw->hardware_enabled_baro != 0;
+  data->hardware_enabled_imu = raw->hardware_enabled_imu != 0;
+  data->hardware_enabled_gnss = raw->hardware_enabled_gnss != 0;
   data->firmware_series = raw->firmware_series;
   memcpy(data->firmware_version, raw->firmware_version,
          sizeof(data->firmware_version));
@@ -563,6 +574,9 @@ static inline void ub_data_heartbeat_from_raw(const UBRawDataHeartbeat *raw,
       raw->recent_peer_global_time_error_occurred != 0;
   data->recent_peer_local_time_error_occurred =
       raw->recent_peer_local_time_error_occurred != 0;
+  data->rtos_warn = raw->rtos_warn != 0;
+  data->mcu_warn = raw->mcu_warn != 0;
+  data->uwb_warn = raw->uwb_warn != 0;
 }
 static inline void ub_data_heartbeat_to_raw(const UBDataHeartbeat *data,
                                             void *buf, int *size) {
@@ -574,12 +588,16 @@ static inline void ub_data_heartbeat_to_raw(const UBDataHeartbeat *data,
   raw->reset_info_dirty = data->reset_info_dirty ? 1 : 0;
   raw->assert_info_dirty = data->assert_info_dirty ? 1 : 0;
   raw->restart_cnt = data->restart_cnt & 0x07;
-  raw->is_sleeping = data->is_sleeping ? 1 : 0;
+  raw->user_request_sleep = data->user_request_sleep ? 1 : 0;
+  raw->hardware_enabled_motion = data->hardware_enabled_motion ? 1 : 0;
   raw->hardware_enabled_uart = data->hardware_enabled_uart ? 1 : 0;
   raw->hardware_enabled_iic = data->hardware_enabled_iic ? 1 : 0;
   raw->hardware_enabled_uwb = data->hardware_enabled_uwb ? 1 : 0;
   raw->hardware_enabled_ble = data->hardware_enabled_ble ? 1 : 0;
   raw->hardware_enabled_four_g = data->hardware_enabled_four_g ? 1 : 0;
+  raw->hardware_enabled_baro = data->hardware_enabled_baro ? 1 : 0;
+  raw->hardware_enabled_imu = data->hardware_enabled_imu ? 1 : 0;
+  raw->hardware_enabled_gnss = data->hardware_enabled_gnss ? 1 : 0;
   raw->firmware_series = data->firmware_series;
   memcpy(raw->firmware_version, data->firmware_version,
          sizeof(raw->firmware_version));
@@ -595,6 +613,9 @@ static inline void ub_data_heartbeat_to_raw(const UBDataHeartbeat *data,
       data->recent_peer_global_time_error_occurred ? 1 : 0;
   raw->recent_peer_local_time_error_occurred =
       data->recent_peer_local_time_error_occurred ? 1 : 0;
+  raw->rtos_warn = data->rtos_warn ? 1 : 0;
+  raw->mcu_warn = data->mcu_warn ? 1 : 0;
+  raw->uwb_warn = data->uwb_warn ? 1 : 0;
   *size = (int)sizeof(*raw);
 }
 
@@ -664,24 +685,26 @@ static inline void ub_data_anchor_signal_to_raw(const UBDataAnchorSignal *data,
           count * (int)sizeof(raw->datas[0]);
 }
 
-static inline void ub_data_anchor_ddoas_from_raw(
-    const UBRawDataAnchorDdoas *raw, UBDataAnchorDdoas *data) {
+static inline void ub_data_anchor2tag_ddoa_from_raw(
+    const UBRawDataAnchor2TagDdoa *raw, UBDataAnchor2TagDdoa *data) {
   data->begin_time_us = raw->begin_time_us;
-  data->time_slot_duration_us = (uint16_t)(raw->_time_slot_duration * 20);
-  data->count = (uint8_t)ub_min_int(raw->count, UB_ANCHOR_DDOAS_DATA_MAX);
+  data->group_count = raw->group_count;
+  data->group_index = raw->group_index;
+  data->count = (uint8_t)ub_min_int(raw->count, UB_ANCHOR2TAG_DDOA_DATA_MAX);
   for (int i = 0; i < data->count; ++i) {
     data->datas[i].a0 = raw->datas[i].a0;
     data->datas[i].a1 = raw->datas[i].a1;
     data->datas[i].ddoa = raw->datas[i].ddoa_cm * 0.01f;
   }
 }
-static inline void ub_data_anchor_ddoas_to_raw(const UBDataAnchorDdoas *data,
-                                               void *buf, int *size) {
-  UBRawDataAnchorDdoas *raw = (UBRawDataAnchorDdoas *)buf;
+static inline void ub_data_anchor2tag_ddoa_to_raw(
+    const UBDataAnchor2TagDdoa *data, void *buf, int *size) {
+  UBRawDataAnchor2TagDdoa *raw = (UBRawDataAnchor2TagDdoa *)buf;
   memset(raw, 0, sizeof(*raw));
   raw->begin_time_us = data->begin_time_us;
-  raw->_time_slot_duration = (uint8_t)(data->time_slot_duration_us / 20);
-  int count = ub_min_int(data->count, UB_ANCHOR_DDOAS_DATA_MAX);
+  raw->group_count = data->group_count & 0x0F;
+  raw->group_index = data->group_index & 0x0F;
+  int count = ub_min_int(data->count, UB_ANCHOR2TAG_DDOA_DATA_MAX);
   raw->count = (uint8_t)count;
   for (int i = 0; i < count; ++i) {
     raw->datas[i].a0 = data->datas[i].a0;
@@ -689,24 +712,24 @@ static inline void ub_data_anchor_ddoas_to_raw(const UBDataAnchorDdoas *data,
     raw->datas[i].ddoa_cm = (int16_t)ub_round_i32(data->datas[i].ddoa * 100.0f);
   }
   // 变长：只发送有效元素
-  *size = (int)offsetof(UBRawDataAnchorDdoas, datas) +
+  *size = (int)offsetof(UBRawDataAnchor2TagDdoa, datas) +
           count * (int)sizeof(raw->datas[0]);
 }
 
 static inline void ub_data_anchor2tag_signal_from_raw(
     const UBRawDataAnchor2TagSignal *raw, UBDataAnchor2TagSignal *data) {
   data->begin_time_us = raw->begin_time_us;
-  data->time_slot_duration_us = (uint16_t)(raw->_time_slot_duration * 20);
   data->count =
       (uint8_t)ub_min_int(raw->count, UB_ANCHOR2TAG_SIGNAL_DATA_MAX);
+  data->location_mode = raw->location_mode;
   for (int i = 0; i < data->count; ++i) {
     data->datas[i].addr = raw->datas[i].addr;
     data->datas[i].rx_rssi = raw->datas[i]._rx_rssi * -0.5f;
     data->datas[i].fp_rssi = raw->datas[i]._fp_rssi * -0.5f;
     data->datas[i].uwb_clock_offset_ppm =
-        raw->datas[i]._uwb_clock_offset_ppm * 0.01f;
+        ub_ppm_from_int8(raw->datas[i].uwb_clock_offset_ppm);
     data->datas[i].mcu_clock_offset_ppm =
-        raw->datas[i]._mcu_clock_offset_ppm * 0.01f;
+        ub_ppm_from_int8(raw->datas[i].mcu_clock_offset_ppm);
     data->datas[i].rx_rate = raw->datas[i]._rx_rate / 255.0f;
   }
 }
@@ -715,19 +738,19 @@ static inline void ub_data_anchor2tag_signal_to_raw(
   UBRawDataAnchor2TagSignal *raw = (UBRawDataAnchor2TagSignal *)buf;
   memset(raw, 0, sizeof(*raw));
   raw->begin_time_us = data->begin_time_us;
-  raw->_time_slot_duration = (uint8_t)(data->time_slot_duration_us / 20);
   int count = ub_min_int(data->count, UB_ANCHOR2TAG_SIGNAL_DATA_MAX);
   raw->count = count & 0x0F;
+  raw->location_mode = data->location_mode & 0x0F;
   for (int i = 0; i < count; ++i) {
     raw->datas[i].addr = data->datas[i].addr;
     raw->datas[i]._rx_rssi =
         (uint8_t)ub_round_i32(data->datas[i].rx_rssi / -0.5f);
     raw->datas[i]._fp_rssi =
         (uint8_t)ub_round_i32(data->datas[i].fp_rssi / -0.5f);
-    raw->datas[i]._uwb_clock_offset_ppm =
-        (int16_t)ub_round_i32(data->datas[i].uwb_clock_offset_ppm / 0.01f);
-    raw->datas[i]._mcu_clock_offset_ppm =
-        (int16_t)ub_round_i32(data->datas[i].mcu_clock_offset_ppm / 0.01f);
+    raw->datas[i].uwb_clock_offset_ppm =
+        ub_ppm_to_int8(data->datas[i].uwb_clock_offset_ppm);
+    raw->datas[i].mcu_clock_offset_ppm =
+        ub_ppm_to_int8(data->datas[i].mcu_clock_offset_ppm);
     raw->datas[i]._rx_rate =
         (uint8_t)ub_round_i32(data->datas[i].rx_rate * 255.0f);
   }
@@ -739,7 +762,6 @@ static inline void ub_data_anchor2tag_signal_to_raw(
 static inline void ub_data_tag2anchor_dis_from_raw(
     const UBRawDataTag2AnchorDis *raw, UBDataTag2AnchorDis *data) {
   data->begin_time_us = raw->begin_time_us;
-  data->time_slot_duration_us = (uint16_t)(raw->_time_slot_duration * 20);
   data->count = (uint8_t)ub_min_int(raw->count, UB_TAG2ANCHOR_DIS_DATA_MAX);
   for (int i = 0; i < data->count; ++i) {
     data->datas[i].addr = raw->datas[i].addr;
@@ -751,7 +773,6 @@ static inline void ub_data_tag2anchor_dis_to_raw(
   UBRawDataTag2AnchorDis *raw = (UBRawDataTag2AnchorDis *)buf;
   memset(raw, 0, sizeof(*raw));
   raw->begin_time_us = data->begin_time_us;
-  raw->_time_slot_duration = (uint8_t)(data->time_slot_duration_us / 20);
   int count = ub_min_int(data->count, UB_TAG2ANCHOR_DIS_DATA_MAX);
   raw->count = count & 0x0F;
   for (int i = 0; i < count; ++i) {
@@ -766,7 +787,6 @@ static inline void ub_data_tag2anchor_dis_to_raw(
 static inline void ub_data_tag2anchor_pdoa_from_raw(
     const UBRawDataTag2AnchorPdoa *raw, UBDataTag2AnchorPdoa *data) {
   data->begin_time_us = raw->begin_time_us;
-  data->time_slot_duration_us = (uint16_t)(raw->_time_slot_duration * 20);
   data->count = (uint8_t)ub_min_int(raw->count, UB_TAG2ANCHOR_PDOA_DATA_MAX);
   for (int i = 0; i < data->count; ++i) {
     data->datas[i].addr = raw->datas[i].addr;
@@ -783,7 +803,6 @@ static inline void ub_data_tag2anchor_pdoa_to_raw(
   UBRawDataTag2AnchorPdoa *raw = (UBRawDataTag2AnchorPdoa *)buf;
   memset(raw, 0, sizeof(*raw));
   raw->begin_time_us = data->begin_time_us;
-  raw->_time_slot_duration = (uint8_t)(data->time_slot_duration_us / 20);
   int count = ub_min_int(data->count, UB_TAG2ANCHOR_PDOA_DATA_MAX);
   raw->count = count & 0x0F;
   for (int i = 0; i < count; ++i) {

@@ -17,6 +17,7 @@ bool record_start(const std::string &) {
 void publish(const UBDataLocationResult &) {}
 void publish(const UBDataAnchorPos &) {}
 void publish(const UBDataAnchorSignal &) {}
+void publish(const UBDataAnchor2TagSignal &) {}
 void publish(const UBDataHeartbeat &) {}
 void shutdown() {}
 

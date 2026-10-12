@@ -23,6 +23,7 @@ bool record_start(const std::string &file_path);
 void publish(const UBDataLocationResult &data);
 void publish(const UBDataAnchorPos &data);
 void publish(const UBDataAnchorSignal &data);
+void publish(const UBDataAnchor2TagSignal &data);
 void publish(const UBDataHeartbeat &data);
 
 // 停止 WebSocket 服务并结束录制(写入 MCAP 索引并关闭文件)

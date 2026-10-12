@@ -87,11 +87,11 @@ if(UB_BUILD_ROS1)
     )
     add_message_files(
             FILES
-            AnchorDdoa.msg
-            AnchorDdoas.msg
             AnchorPos.msg
             AnchorSignal.msg
             AnchorSignalItem.msg
+            Anchor2TagDdoa.msg
+            Anchor2TagDdoaItem.msg
             Anchor2TagSignal.msg
             Anchor2TagSignalItem.msg
             Attitude.msg
@@ -100,7 +100,6 @@ if(UB_BUILD_ROS1)
             Heartbeat.msg
             IicInterfaceParam.msg
             Imu.msg
-            LocationAnchor.msg
             LocationResult.msg
             MapMeasurement.msg
             Param.msg
@@ -112,6 +111,7 @@ if(UB_BUILD_ROS1)
             Tag2AnchorDisItem.msg
             Tag2AnchorPdoa.msg
             Tag2AnchorPdoaItem.msg
+            TwrParam.msg
             UartInterfaceParam.msg
             UserData.msg
             UwbInterfaceParam.msg
@@ -129,11 +129,11 @@ if(UB_BUILD_ROS2)
     find_package(rosidl_default_generators REQUIRED)
     rosidl_generate_interfaces(
             ${PKG_NAME}
-            "msg/AnchorDdoa.msg"
-            "msg/AnchorDdoas.msg"
             "msg/AnchorPos.msg"
             "msg/AnchorSignal.msg"
             "msg/AnchorSignalItem.msg"
+            "msg/Anchor2TagDdoa.msg"
+            "msg/Anchor2TagDdoaItem.msg"
             "msg/Anchor2TagSignal.msg"
             "msg/Anchor2TagSignalItem.msg"
             "msg/Attitude.msg"
@@ -142,7 +142,6 @@ if(UB_BUILD_ROS2)
             "msg/Heartbeat.msg"
             "msg/IicInterfaceParam.msg"
             "msg/Imu.msg"
-            "msg/LocationAnchor.msg"
             "msg/LocationResult.msg"
             "msg/MapMeasurement.msg"
             "msg/Param.msg"
@@ -154,6 +153,7 @@ if(UB_BUILD_ROS2)
             "msg/Tag2AnchorDisItem.msg"
             "msg/Tag2AnchorPdoa.msg"
             "msg/Tag2AnchorPdoaItem.msg"
+            "msg/TwrParam.msg"
             "msg/UartInterfaceParam.msg"
             "msg/UserData.msg"
             "msg/UwbInterfaceParam.msg"

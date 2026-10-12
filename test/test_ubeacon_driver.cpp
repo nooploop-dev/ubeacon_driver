@@ -1,6 +1,7 @@
 #include "test_common.hpp"
 
 #include <catch2/catch_approx.hpp>
+#include <cmath>
 
 using Catch::Approx;
 
@@ -43,7 +44,6 @@ TEST_CASE("round trip: param") {
   d.reset_interval = 3000;
   d.min_sync_anchor_count = 2;
   d.min_sniff_duty_cycle = 5;
-  d.disable_anchor_data_output_with_result = true;
   d.static_map_id = 3;
   roundtrip(UB_MSG_PARAM, d);
 }
@@ -89,10 +89,15 @@ TEST_CASE("round trip: uwb_interface_param") {
   d.random_window_ms = 20;
   d.max_rx_interval_ms = 1000;
   d.min_tx_interval_ms = 100;
+  roundtrip(UB_MSG_UWB_INTERFACE_PARAM, d);
+}
+
+TEST_CASE("round trip: twr_param") {
+  UBDataTwrParam d{};
   d.dis_frequency = 5.0f;
   d.dis_slot_count_max = 6;
   d.dis_remain_slot_count = 1;
-  roundtrip(UB_MSG_UWB_INTERFACE_PARAM, d);
+  roundtrip(UB_MSG_TWR_PARAM, d);
 }
 
 TEST_CASE("round trip: location_result") {
@@ -113,16 +118,6 @@ TEST_CASE("round trip: location_result") {
   d.map_id = 3;
   d.error_code = 0;
   d.area_id = 2;
-  d.anchor_count = 3;
-  d.anchors[0].addr = 0x1001;
-  d.anchors[0].rx_rssi = -80.0f;
-  d.anchors[0].rx_rate = 1.0f;
-  d.anchors[1].addr = 0x1002;
-  d.anchors[1].rx_rssi = -90.5f;
-  d.anchors[1].rx_rate = 0.5f;
-  d.anchors[2].addr = 0x1003;
-  d.anchors[2].rx_rssi = -100.0f;
-  d.anchors[2].rx_rate = 0.25f;
   roundtrip_to_user(UB_MSG_LOCATION_RESULT, d);
 }
 
@@ -133,9 +128,11 @@ TEST_CASE("round trip: heartbeat") {
   d.need_restart = false;
   d.reset_info_dirty = true;
   d.restart_cnt = 5;
-  d.is_sleeping = false;
+  d.user_request_sleep = true;
+  d.hardware_enabled_motion = true;
   d.hardware_enabled_uart = true;
   d.hardware_enabled_uwb = true;
+  d.hardware_enabled_imu = true;
   d.firmware_series = 1;
   d.firmware_version[0] = 1;
   d.firmware_version[1] = 2;
@@ -147,6 +144,7 @@ TEST_CASE("round trip: heartbeat") {
   d.recent_rx_sts_error_occurred = true;
   d.recent_global_time_error_occurred = true;
   d.recent_peer_local_time_error_occurred = true;
+  d.mcu_warn = true;
   roundtrip_to_user(UB_MSG_HEARTBEAT, d);
 }
 
@@ -185,10 +183,11 @@ TEST_CASE("round trip: anchor_signal") {
   roundtrip_to_user(UB_MSG_ANCHOR_SIGNAL, d);
 }
 
-TEST_CASE("round trip: anchor_ddoas") {
-  UBDataAnchorDdoas d{};
+TEST_CASE("round trip: anchor2tag_ddoa") {
+  UBDataAnchor2TagDdoa d{};
   d.begin_time_us = 555;
-  d.time_slot_duration_us = 1000;
+  d.group_count = 2;
+  d.group_index = 1;
   d.count = 2;
   d.datas[0].a0 = 0x3001;
   d.datas[0].a1 = 0x3002;
@@ -196,25 +195,25 @@ TEST_CASE("round trip: anchor_ddoas") {
   d.datas[1].a0 = 0x3003;
   d.datas[1].a1 = 0x3004;
   d.datas[1].ddoa = -4.56f;
-  roundtrip_to_user(UB_MSG_ANCHOR_DDOAS, d);
+  roundtrip_to_user(UB_MSG_ANCHOR2TAG_DDOA, d);
 }
 
 TEST_CASE("round trip: anchor2tag_signal") {
   UBDataAnchor2TagSignal d{};
   d.begin_time_us = 111222333;
-  d.time_slot_duration_us = 500;
   d.count = 2;
+  d.location_mode = UB_LOCATION_MODE_TWR;
   d.datas[0].addr = 0x2001;
   d.datas[0].rx_rssi = -85.5f;
   d.datas[0].fp_rssi = -90.0f;
-  d.datas[0].uwb_clock_offset_ppm = 1.23f;
-  d.datas[0].mcu_clock_offset_ppm = -4.56f;
+  d.datas[0].uwb_clock_offset_ppm = 1.0f;
+  d.datas[0].mcu_clock_offset_ppm = -5.0f;
   d.datas[0].rx_rate = 1.0f;
   d.datas[1].addr = 0x2002;
   d.datas[1].rx_rssi = -95.0f;
   d.datas[1].fp_rssi = -99.5f;
-  d.datas[1].uwb_clock_offset_ppm = -2.0f;
-  d.datas[1].mcu_clock_offset_ppm = 3.0f;
+  d.datas[1].uwb_clock_offset_ppm = NAN;
+  d.datas[1].mcu_clock_offset_ppm = 127.0f;
   d.datas[1].rx_rate = 0.75f;
   roundtrip_to_user(UB_MSG_ANCHOR2TAG_SIGNAL, d);
 }
@@ -222,7 +221,6 @@ TEST_CASE("round trip: anchor2tag_signal") {
 TEST_CASE("round trip: tag2anchor_dis") {
   UBDataTag2AnchorDis d{};
   d.begin_time_us = 444555666;
-  d.time_slot_duration_us = 1000;
   d.count = 3;
   d.datas[0].addr = 0x2001;
   d.datas[0].dis = 1.23f;
@@ -236,7 +234,6 @@ TEST_CASE("round trip: tag2anchor_dis") {
 TEST_CASE("round trip: tag2anchor_pdoa") {
   UBDataTag2AnchorPdoa d{};
   d.begin_time_us = 777888999;
-  d.time_slot_duration_us = 1000;
   d.count = 2;
   d.datas[0].addr = 0x2001;
   d.datas[0].antenna_type = 1;
@@ -339,22 +336,115 @@ TEST_CASE("scaling: heartbeat battery_voltage = _battery_voltage / 40") {
   REQUIRE(d.battery_voltage == Approx(4.0f));
 }
 
-TEST_CASE("scaling: location_result rssi / rate") {
-  std::vector<uint8_t> payload(72, 0); // 线格式定长部分 36 + 9*4
-  payload[35] = 1;                     // anchor_count = 1
-  payload[36] = 0x01;                  // addr 低字节
-  payload[37] = 0x10;                  // addr 高字节 -> 0x1001
-  payload[38] = 160;                   // _rx_rssi -> 160 / -2 = -80 dBm
-  payload[39] = 255;                   // _rx_rate -> 255 / 255 = 1.0
+TEST_CASE("scaling: location_result field positions") {
+  // 线格式 34 字节：
+  //   [0..7] local_time  [8..19] pos(float)  [20..25] vel_cm(int16)
+  //   [26..28] pos_noise_cm  [29..31] vel_noise_cm  [32] map_id
+  //   [33] error_code:4 | area_id:4
+  std::vector<uint8_t> payload(34, 0);
+  payload[20] = 0x32; // vel[0] = 50cm/s
+  payload[26] = 10;   // pos_noise[0] = 0.1m
+  payload[32] = 3;    // map_id
+  payload[33] = 0x21; // error_code = 1, area_id = 2
   auto cap = parse_from_dev(make_up_frame(UB_MSG_LOCATION_RESULT, payload));
 
   REQUIRE(cap.msgs.size() == 1);
   const auto &d =
       *reinterpret_cast<const UBDataLocationResult *>(cap.msgs[0].data.data());
-  REQUIRE(d.anchor_count == 1);
-  REQUIRE(d.anchors[0].addr == 0x1001);
-  REQUIRE(d.anchors[0].rx_rssi == Approx(-80.0f));
-  REQUIRE(d.anchors[0].rx_rate == Approx(1.0f));
+  REQUIRE(d.vel[0] == Approx(0.5f));
+  REQUIRE(d.pos_noise[0] == Approx(0.1f));
+  REQUIRE(d.map_id == 3);
+  REQUIRE(d.error_code == 1);
+  REQUIRE(d.area_id == 2);
+
+  // 上行组包同样是定长 34 字节：sof(1) size(2) uid(6) frame_id(1) id(1) 之后
+  // 是消息的 payload_size
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP,
+                                       UB_MSG_LOCATION_RESULT, &d, frame,
+                                       sizeof(frame));
+  REQUIRE(n > 0);
+  REQUIRE((frame[11] & 0x7F) == 34);
+}
+
+TEST_CASE("scaling: heartbeat flag bit positions") {
+  std::vector<uint8_t> payload(16, 0);
+  payload[1] = 0xC0;  // bit6 user_request_sleep, bit7 hardware_enabled_motion
+  payload[2] = 0xE0;  // bit5..7 hardware_enabled_baro / imu / gnss
+  payload[15] = 0xE0; // bit5..7 rtos_warn / mcu_warn / uwb_warn
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_HEARTBEAT, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d =
+      *reinterpret_cast<const UBDataHeartbeat *>(cap.msgs[0].data.data());
+  REQUIRE(d.restart_cnt == 0);
+  REQUIRE(d.user_request_sleep == true);
+  REQUIRE(d.hardware_enabled_motion == true);
+  REQUIRE(d.hardware_enabled_uart == false);
+  REQUIRE(d.hardware_enabled_four_g == false);
+  REQUIRE(d.hardware_enabled_baro == true);
+  REQUIRE(d.hardware_enabled_imu == true);
+  REQUIRE(d.hardware_enabled_gnss == true);
+  REQUIRE(d.recent_peer_local_time_error_occurred == false);
+  REQUIRE(d.rtos_warn == true);
+  REQUIRE(d.mcu_warn == true);
+  REQUIRE(d.uwb_warn == true);
+}
+
+TEST_CASE("scaling: anchor2tag_signal location_mode and int8 ppm") {
+  // 头部：[0..7] begin_time  [8] reserved  [9] count:4 | location_mode:4
+  // 每个元素 7 字节：addr(2) _rx_rssi _fp_rssi uwb_ppm(int8) mcu_ppm(int8)
+  // _rx_rate
+  std::vector<uint8_t> payload = {
+      0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0x12,                                 // count = 2, location_mode = TWR
+      0x01, 0x20, 170, 180, 0x80, 127, 255, // uwb_ppm = -128 即无效
+      0x02, 0x20, 0, 0, 0x81, 0xFE, 0,      // -127, -2
+  };
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ANCHOR2TAG_SIGNAL, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d = *reinterpret_cast<const UBDataAnchor2TagSignal *>(
+      cap.msgs[0].data.data());
+  REQUIRE(d.count == 2);
+  REQUIRE(d.location_mode == UB_LOCATION_MODE_TWR);
+  REQUIRE(d.datas[0].addr == 0x2001);
+  REQUIRE(d.datas[0].rx_rssi == Approx(-85.0f));
+  REQUIRE(d.datas[0].fp_rssi == Approx(-90.0f));
+  REQUIRE(std::isnan(d.datas[0].uwb_clock_offset_ppm));
+  REQUIRE(d.datas[0].mcu_clock_offset_ppm == Approx(127.0f));
+  REQUIRE(d.datas[0].rx_rate == Approx(1.0f));
+  REQUIRE(d.datas[1].uwb_clock_offset_ppm == Approx(-127.0f));
+  REQUIRE(d.datas[1].mcu_clock_offset_ppm == Approx(-2.0f));
+}
+
+TEST_CASE("anchor2tag_signal ppm encoding rounds, saturates and maps NaN") {
+  UBDataAnchor2TagSignal d{};
+  d.count = 2;
+  d.datas[0].uwb_clock_offset_ppm = 300.0f;
+  d.datas[0].mcu_clock_offset_ppm = -300.0f;
+  d.datas[1].uwb_clock_offset_ppm = NAN;
+  d.datas[1].mcu_clock_offset_ppm = 1.6f;
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP,
+                                       UB_MSG_ANCHOR2TAG_SIGNAL, &d, frame,
+                                       sizeof(frame));
+  REQUIRE(n > 0);
+  // 消息 payload 从 frame[12] 开始，元素从其中第 10 字节开始，ppm 在元素内
+  // 第 4、5 字节
+  const auto *e0 = reinterpret_cast<const int8_t *>(frame + 12 + 10);
+  const auto *e1 = e0 + 7;
+  REQUIRE(e0[4] == 127);
+  REQUIRE(e0[5] == -127); // 饱和到 -127 而非 -128，-128 是无效值
+  REQUIRE(e1[4] == -128);
+  REQUIRE(e1[5] == 2);
+}
+
+TEST_CASE("legacy anchor2tag_signal id 89 is not recognized") {
+  // 2.15.0.11 之前的固件用 89，且期间布局多次变化，驱动不再解析
+  auto cap = parse_from_dev(make_up_frame(89, std::vector<uint8_t>(10, 0)));
+  REQUIRE(cap.begin_count == 1);
+  REQUIRE(cap.msgs.empty());
 }
 
 TEST_CASE("scaling: param z_noise / max_acceleration") {
@@ -397,21 +487,19 @@ TEST_CASE("param write fills hidden wire fields with firmware defaults") {
   std::memcpy(&expect_location_frequency, payload, sizeof(float));
   REQUIRE(expect_location_frequency == Approx(1.0f));
   REQUIRE((payload[25] & 0x01) == 0x01);
+  // 已弃用的 [25] bit1 与 output_delay_ms([27]) 写 0
+  REQUIRE((payload[25] & 0x02) == 0);
+  REQUIRE(payload[27] == 0);
 }
 
 TEST_CASE("scaling: uwb_interface_param field positions") {
-  // 线格式 15 字节：
+  // 线格式 9 字节：
   //   [0..1] reserved  [2] _max_rx_interval(50ms)  [3..4] min_tx_interval_ms
-  //   [5..6] reserved  [7..8] random_window_ms  [9..12] dis_frequency(float)
-  //   [13] dis_slot_count_max  [14] dis_remain_slot_count
-  std::vector<uint8_t> payload(15, 0);
+  //   [5..6] reserved  [7..8] random_window_ms
+  std::vector<uint8_t> payload(9, 0);
   payload[2] = 20;   // 20 * 50ms = 1.0s
   payload[3] = 100;  // 100ms
   payload[7] = 0x14; // 20ms
-  payload[13] = 6;
-  payload[14] = 1;
-  const float dis_frequency = 5.0f;
-  std::memcpy(&payload[9], &dis_frequency, sizeof(dis_frequency));
   auto cap = parse_from_dev(make_up_frame(UB_MSG_UWB_INTERFACE_PARAM, payload));
 
   REQUIRE(cap.msgs.size() == 1);
@@ -420,22 +508,47 @@ TEST_CASE("scaling: uwb_interface_param field positions") {
   REQUIRE(d.max_rx_interval_ms == 1000);
   REQUIRE(d.min_tx_interval_ms == 100);
   REQUIRE(d.random_window_ms == 20);
+}
+
+TEST_CASE("scaling: twr_param field positions") {
+  // 线格式 6 字节：
+  //   [0..3] dis_frequency(float)  [4] dis_slot_count_max
+  //   [5] dis_remain_slot_count
+  std::vector<uint8_t> payload(6, 0);
+  const float dis_frequency = 5.0f;
+  std::memcpy(&payload[0], &dis_frequency, sizeof(dis_frequency));
+  payload[4] = 6;
+  payload[5] = 1;
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_TWR_PARAM, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d =
+      *reinterpret_cast<const UBDataTwrParam *>(cap.msgs[0].data.data());
   REQUIRE(d.dis_frequency == Approx(5.0f));
   REQUIRE(d.dis_slot_count_max == 6);
   REQUIRE(d.dis_remain_slot_count == 1);
 }
 
-TEST_CASE("scaling: grouped signal time_slot_duration = raw * 20us") {
-  // Tag2AnchorDis 头部：[0..7] begin_time  [8] _time_slot_duration  [9] count:4
-  std::vector<uint8_t> payload(10, 0);
-  payload[8] = 50; // 50 * 20 = 1000us
-  auto cap = parse_from_dev(make_up_frame(UB_MSG_TAG2ANCHOR_DIS, payload));
+TEST_CASE("scaling: anchor2tag_ddoa group fields and ddoa_cm") {
+  // 头部：[0..7] begin_time  [8] group_count:4 | group_index:4  [9] count
+  // 每个元素 6 字节：a0(2) a1(2) ddoa_cm(int16)
+  std::vector<uint8_t> payload = {
+      0, 0, 0, 0, 0, 0, 0, 0,
+      0x12, // group_count = 2, group_index = 1
+      1,    // count
+      0x01, 0x30, 0x02, 0x30, 0x85, 0xFF, // ddoa_cm = -123
+  };
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ANCHOR2TAG_DDOA, payload));
 
   REQUIRE(cap.msgs.size() == 1);
   const auto &d =
-      *reinterpret_cast<const UBDataTag2AnchorDis *>(cap.msgs[0].data.data());
-  REQUIRE(d.time_slot_duration_us == 1000);
-  REQUIRE(d.count == 0);
+      *reinterpret_cast<const UBDataAnchor2TagDdoa *>(cap.msgs[0].data.data());
+  REQUIRE(d.group_count == 2);
+  REQUIRE(d.group_index == 1);
+  REQUIRE(d.count == 1);
+  REQUIRE(d.datas[0].a0 == 0x3001);
+  REQUIRE(d.datas[0].a1 == 0x3002);
+  REQUIRE(d.datas[0].ddoa == Approx(-1.23f));
 }
 
 // ============================================================
@@ -558,12 +671,12 @@ TEST_CASE("one frame carries multiple messages") {
 // ============================================================
 
 TEST_CASE("variable length messages only send valid elements") {
-  auto frame_size_for = [](uint8_t anchor_count) {
-    UBDataLocationResult d{};
-    d.anchor_count = anchor_count;
+  auto frame_size_for = [](uint8_t count) {
+    UBDataTag2AnchorDis d{};
+    d.count = count;
     uint8_t frame[UB_FRAME_SIZE_MAX];
     return ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP,
-                                  UB_MSG_LOCATION_RESULT, &d, frame,
+                                  UB_MSG_TAG2ANCHOR_DIS, &d, frame,
                                   sizeof(frame));
   };
 
@@ -571,7 +684,7 @@ TEST_CASE("variable length messages only send valid elements") {
   const int n3 = frame_size_for(3);
   const int n9 = frame_size_for(9);
   REQUIRE(n0 > 0);
-  // 每多一个信标，线上就多 4 字节（addr 2 + _rx_rssi 1 + _rx_rate 1）
+  // 每多一个信标，线上就多 4 字节（addr 2 + dis_cm 2）
   REQUIRE(n3 == n0 + 3 * 4);
   REQUIRE(n9 == n0 + 9 * 4);
 }
@@ -589,15 +702,15 @@ TEST_CASE("anchor_signal at max count fits in the 7-bit payload limit") {
 }
 
 TEST_CASE("out-of-range count from a corrupt device is clamped") {
-  // anchor_count 是 4 位（最大 15），但数组只有 9 个元素；必须钳位而不是越界
-  std::vector<uint8_t> payload(72, 0);
-  payload[35] = 0x0F; // anchor_count = 15
-  auto cap = parse_from_dev(make_up_frame(UB_MSG_LOCATION_RESULT, payload));
+  // count 是 4 位（最大 15），但数组只有 9 个元素；必须钳位而不是越界
+  std::vector<uint8_t> payload(10 + UB_ANCHOR2TAG_SIGNAL_DATA_MAX * 7, 0);
+  payload[9] = 0x0F; // count = 15, location_mode = TDOA
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ANCHOR2TAG_SIGNAL, payload));
 
   REQUIRE(cap.msgs.size() == 1);
-  const auto &d =
-      *reinterpret_cast<const UBDataLocationResult *>(cap.msgs[0].data.data());
-  REQUIRE(d.anchor_count == UB_LOCATION_RESULT_ANCHOR_MAX);
+  const auto &d = *reinterpret_cast<const UBDataAnchor2TagSignal *>(
+      cap.msgs[0].data.data());
+  REQUIRE(d.count == UB_ANCHOR2TAG_SIGNAL_DATA_MAX);
 }
 
 // ============================================================
@@ -759,6 +872,47 @@ TEST_CASE("read requests are downlink-only, empty, and decoded as such") {
   REQUIRE(up.begin_count == 1);
   REQUIRE(up.end_count == 1);
   REQUIRE(up.msgs.empty());
+}
+
+TEST_CASE("twr param read request is an empty downlink message") {
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_dev(UB_MSG_READ_TWR_PARAM, nullptr, frame,
+                                      sizeof(frame));
+  REQUIRE(n > 0);
+
+  Capture cap;
+  UBParserFromUser parser;
+  ub_parser_from_user_init(&parser, on_begin_from_user, on_msg, on_end, &cap);
+  ub_parser_from_user_handle_data(&parser, frame, n);
+  REQUIRE(cap.msgs.size() == 1);
+  REQUIRE(cap.msgs[0].id == UB_MSG_READ_TWR_PARAM);
+  REQUIRE(cap.msgs[0].data.empty());
+}
+
+TEST_CASE("reset_param is an empty message in both directions") {
+  // 设备收到后原样回一条空消息作为确认
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_dev(UB_MSG_RESET_PARAM, nullptr, frame,
+                                      sizeof(frame));
+  REQUIRE(n > 0);
+  Capture down;
+  UBParserFromUser parser;
+  ub_parser_from_user_init(&parser, on_begin_from_user, on_msg, on_end, &down);
+  ub_parser_from_user_handle_data(&parser, frame, n);
+  REQUIRE(down.msgs.size() == 1);
+  REQUIRE(down.msgs[0].id == UB_MSG_RESET_PARAM);
+  REQUIRE(down.msgs[0].data.empty());
+
+  REQUIRE(ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP, UB_MSG_RESET_PARAM,
+                                 nullptr, frame, sizeof(frame)) > 0);
+  // 固件按 sizeof(空结构体) 回包，payload 实际是 1 个无意义字节
+  for (const auto &payload :
+       {std::vector<uint8_t>{}, std::vector<uint8_t>{0}}) {
+    auto up = parse_from_dev(make_up_frame(UB_MSG_RESET_PARAM, payload));
+    REQUIRE(up.msgs.size() == 1);
+    REQUIRE(up.msgs[0].id == UB_MSG_RESET_PARAM);
+    REQUIRE(up.msgs[0].data.empty());
+  }
 }
 
 TEST_CASE("uplink-only messages in a downlink frame are ignored") {

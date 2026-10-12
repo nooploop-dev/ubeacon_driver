@@ -39,18 +39,6 @@ const T *get_data(const void *msg_payload, int msg_payload_size) {
 }
 
 // 以下消息携带变长数组，逐元素展开
-std::string anchors2str(const UBDataLocationResult *data) {
-  std::string s;
-  for (int i = 0; i < data->anchor_count; i++) {
-    if (i > 0) {
-      s += ",";
-    }
-    s += fmt::format("({:#06x},{:.1f},{:.2f})", data->anchors[i].addr,
-                     data->anchors[i].rx_rssi, data->anchors[i].rx_rate);
-  }
-  return "[" + s + "]";
-}
-
 std::string signals2str(const UBDataAnchorSignal *data) {
   std::string s;
   for (int i = 0; i < data->count; i++) {
@@ -75,8 +63,8 @@ std::string anchor2tag_signals2str(const UBDataAnchor2TagSignal *data) {
       s += ",";
     }
     const auto &d = data->datas[i];
-    s += fmt::format("({:#06x},rx_rssi={:.1f},fp_rssi={:.1f},uwb_clk={:.2f},"
-                     "mcu_clk={:.2f},rx_rate={:.2f})",
+    s += fmt::format("({:#06x},rx_rssi={:.1f},fp_rssi={:.1f},uwb_clk={:.0f},"
+                     "mcu_clk={:.0f},rx_rate={:.2f})",
                      d.addr, d.rx_rssi, d.fp_rssi, d.uwb_clock_offset_ppm,
                      d.mcu_clock_offset_ppm, d.rx_rate);
   }
@@ -120,7 +108,7 @@ std::string peripheral_config2str(const UBDataPeripheralConfig *data) {
       data->gnss);
 }
 
-std::string ddoas2str(const UBDataAnchorDdoas *data) {
+std::string ddoas2str(const UBDataAnchor2TagDdoa *data) {
   std::string s;
   for (int i = 0; i < data->count; i++) {
     if (i > 0) {
@@ -153,9 +141,13 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
                   int msg_payload_size) {
   (void)arg;
   const auto &header = s_header;
-  // 空消息(只有id没有payload)。上行内建消息都带payload，这里只会是扩展消息
+  // 空消息(只有id没有payload)：内建的只有 RESET_PARAM 的回包，其余是扩展消息
   if (msg_payload == nullptr || msg_payload_size == 0) {
-    spdlog::info("{},MSG_EMPTY({}): {{}}", header, msg_id);
+    if (msg_id == UB_MSG_RESET_PARAM) {
+      spdlog::info("{},MSG_RESET_PARAM: {{}}", header);
+    } else {
+      spdlog::info("{},MSG_EMPTY({}): {{}}", header, msg_id);
+    }
     return;
   }
   switch (msg_id) {
@@ -180,7 +172,7 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
         "tag_pos_even_error={},anchor_link_status={},imu={},attitude={},"
         "dis={},pdoa={}}},sniff_duty_cycle={},update_interval_max={},"
         "reset_interval={},min_sync_anchor_count={},min_sniff_duty_cycle={},"
-        "disable_anchor_data_output_with_result={},static_map_id={}}}",
+        "static_map_id={}}}",
         header, data->expect_z, data->z_noise, data->smooth_window,
         vec2str(data->max_acceleration),
         data->output.tag_pos, data->output.anchor_packet,
@@ -190,8 +182,7 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
         data->output.imu, data->output.attitude, data->output.dis,
         data->output.pdoa, data->sniff_duty_cycle, data->update_interval_max,
         data->reset_interval, data->min_sync_anchor_count,
-        data->min_sniff_duty_cycle,
-        data->disable_anchor_data_output_with_result, data->static_map_id);
+        data->min_sniff_duty_cycle, data->static_map_id);
     break;
   }
   case UB_MSG_RUN_TIME_PARAM: {
@@ -237,22 +228,28 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
         get_data<UBDataUwbInterfaceParam>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_UWB_INTERFACE_PARAM: "
                  "{{random_window_ms={},max_rx_interval_ms={},"
-                 "min_tx_interval_ms={},dis_frequency={:.2f},"
-                 "dis_slot_count_max={},dis_remain_slot_count={}}}",
+                 "min_tx_interval_ms={}}}",
                  header, data->random_window_ms, data->max_rx_interval_ms,
-                 data->min_tx_interval_ms, data->dis_frequency,
-                 data->dis_slot_count_max, data->dis_remain_slot_count);
+                 data->min_tx_interval_ms);
+    break;
+  }
+  case UB_MSG_TWR_PARAM: {
+    auto data = get_data<UBDataTwrParam>(msg_payload, msg_payload_size);
+    spdlog::info("{},MSG_TWR_PARAM: {{dis_frequency={:.2f},"
+                 "dis_slot_count_max={},dis_remain_slot_count={}}}",
+                 header, data->dis_frequency, data->dis_slot_count_max,
+                 data->dis_remain_slot_count);
     break;
   }
   case UB_MSG_LOCATION_RESULT: {
     auto data = get_data<UBDataLocationResult>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_LOCATION_RESULT: {{local_time_us={},pos={},vel={},"
-                 "pos_noise={},vel_noise={},map_id={},error_code={},area_id={},"
-                 "anchors={}}}",
+                 "pos_noise={},vel_noise={},map_id={},error_code={},"
+                 "area_id={}}}",
                  header, data->local_time_us, vec2str(data->pos),
                  vec2str(data->vel), vec2str(data->pos_noise),
                  vec2str(data->vel_noise), data->map_id, data->error_code,
-                 data->area_id, anchors2str(data));
+                 data->area_id);
     foxglove_viz::publish(*data);
     break;
   }
@@ -261,22 +258,27 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
     spdlog::info(
         "{},MSG_HEARTBEAT: {{battery={{percent={},charging={},voltage={:.2f}}},"
         "need_restart={},reset_info_dirty={},assert_info_dirty={},"
-        "restart_cnt={},is_sleeping={},hardware_enabled={{uart={},iic={},"
-        "uwb={},ble={},four_g={}}},firmware={{series={},version={}}},uid={},"
+        "restart_cnt={},user_request_sleep={},hardware_enabled={{motion={},"
+        "uart={},iic={},uwb={},ble={},four_g={},baro={},imu={},gnss={}}},"
+        "firmware={{series={},version={}}},uid={},"
         "recent_error={{rx_sts={},rx_data={},global_time={},"
-        "peer_global_time={},peer_local_time={}}}}}",
+        "peer_global_time={},peer_local_time={}}},"
+        "warn={{rtos={},mcu={},uwb={}}}}}",
         header, data->battery_percent, data->battery_charging,
         data->battery_voltage, data->need_restart, data->reset_info_dirty,
-        data->assert_info_dirty, data->restart_cnt, data->is_sleeping,
-        data->hardware_enabled_uart, data->hardware_enabled_iic,
-        data->hardware_enabled_uwb, data->hardware_enabled_ble,
-        data->hardware_enabled_four_g, data->firmware_series,
+        data->assert_info_dirty, data->restart_cnt, data->user_request_sleep,
+        data->hardware_enabled_motion, data->hardware_enabled_uart,
+        data->hardware_enabled_iic, data->hardware_enabled_uwb,
+        data->hardware_enabled_ble, data->hardware_enabled_four_g,
+        data->hardware_enabled_baro, data->hardware_enabled_imu,
+        data->hardware_enabled_gnss, data->firmware_series,
         vec2str(data->firmware_version), data2hex(data->uid, UB_UID_SIZE),
         data->recent_rx_sts_error_occurred,
         data->recent_rx_data_error_occurred,
         data->recent_global_time_error_occurred,
         data->recent_peer_global_time_error_occurred,
-        data->recent_peer_local_time_error_occurred);
+        data->recent_peer_local_time_error_occurred, data->rtos_warn,
+        data->mcu_warn, data->uwb_warn);
     foxglove_viz::publish(*data);
     break;
   }
@@ -294,37 +296,34 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
     foxglove_viz::publish(*data);
     break;
   }
-  case UB_MSG_ANCHOR_DDOAS: {
-    auto data = get_data<UBDataAnchorDdoas>(msg_payload, msg_payload_size);
-    spdlog::info("{},MSG_ANCHOR_DDOAS: {{begin_time_us={},"
-                 "time_slot_duration_us={},datas={}}}",
-                 header, data->begin_time_us, data->time_slot_duration_us,
-                 ddoas2str(data));
+  case UB_MSG_ANCHOR2TAG_DDOA: {
+    auto data = get_data<UBDataAnchor2TagDdoa>(msg_payload, msg_payload_size);
+    spdlog::info("{},MSG_ANCHOR2TAG_DDOA: {{begin_time_us={},group_count={},"
+                 "group_index={},datas={}}}",
+                 header, data->begin_time_us, data->group_count,
+                 data->group_index, ddoas2str(data));
     break;
   }
   case UB_MSG_ANCHOR2TAG_SIGNAL: {
     auto data =
         get_data<UBDataAnchor2TagSignal>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_ANCHOR2TAG_SIGNAL: {{begin_time_us={},"
-                 "time_slot_duration_us={},datas={}}}",
-                 header, data->begin_time_us, data->time_slot_duration_us,
+                 "location_mode={},datas={}}}",
+                 header, data->begin_time_us, data->location_mode,
                  anchor2tag_signals2str(data));
+    foxglove_viz::publish(*data);
     break;
   }
   case UB_MSG_TAG2ANCHOR_DIS: {
     auto data = get_data<UBDataTag2AnchorDis>(msg_payload, msg_payload_size);
-    spdlog::info("{},MSG_TAG2ANCHOR_DIS: {{begin_time_us={},"
-                 "time_slot_duration_us={},datas={}}}",
-                 header, data->begin_time_us, data->time_slot_duration_us,
-                 dis2str(data));
+    spdlog::info("{},MSG_TAG2ANCHOR_DIS: {{begin_time_us={},datas={}}}", header,
+                 data->begin_time_us, dis2str(data));
     break;
   }
   case UB_MSG_TAG2ANCHOR_PDOA: {
     auto data = get_data<UBDataTag2AnchorPdoa>(msg_payload, msg_payload_size);
-    spdlog::info("{},MSG_TAG2ANCHOR_PDOA: {{begin_time_us={},"
-                 "time_slot_duration_us={},datas={}}}",
-                 header, data->begin_time_us, data->time_slot_duration_us,
-                 pdoas2str(data));
+    spdlog::info("{},MSG_TAG2ANCHOR_PDOA: {{begin_time_us={},datas={}}}",
+                 header, data->begin_time_us, pdoas2str(data));
     break;
   }
   case UB_MSG_IMU: {
