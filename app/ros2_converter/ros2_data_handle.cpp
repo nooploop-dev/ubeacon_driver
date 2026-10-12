@@ -73,12 +73,19 @@ Ros2DataHandle::Ros2DataHandle(const rclcpp::Node::SharedPtr &node)
       node_->create_publisher<ubeacon_driver::msg::TwrParam>("~/twr_param", 50);
   twr_result_pub_ = node_->create_publisher<ubeacon_driver::msg::TwrResult>(
       "~/twr_result", 50);
+  encrypt_param_pub_ =
+      node_->create_publisher<ubeacon_driver::msg::EncryptParam>(
+          "~/encrypt_param", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = node_->create_subscription<ubeacon_driver::msg::Find>(
       "~/find", 50, std::bind(&Ros2DataHandle::on_find, this, _1));
   restart_sub_ = node_->create_subscription<ubeacon_driver::msg::Restart>(
       "~/restart", 50, std::bind(&Ros2DataHandle::on_restart, this, _1));
+  encrypt_param_write_sub_ =
+      node_->create_subscription<ubeacon_driver::msg::EncryptParamWrite>(
+          "~/encrypt_param_write", 50,
+          std::bind(&Ros2DataHandle::on_encrypt_param_write, this, _1));
   state_control_sub_ =
       node_->create_subscription<ubeacon_driver::msg::StateControl>(
           "~/state_control", 50,
@@ -422,6 +429,14 @@ void Ros2DataHandle::dispatch(const UBDataTwrResult &data) {
   twr_result_pub_->publish(msg);
 }
 
+void Ros2DataHandle::dispatch(const UBDataEncryptParam &data) {
+  ubeacon_driver::msg::EncryptParam msg;
+  msg.success = data.success;
+  msg.too_frequent = data.too_frequent;
+  std::memcpy(msg.key.data(), data.key, sizeof(data.key));
+  encrypt_param_pub_->publish(msg);
+}
+
 // ---------------- 用户 -> 设备(v) ----------------
 
 void Ros2DataHandle::on_find(const ubeacon_driver::msg::Find::SharedPtr msg) {
@@ -436,6 +451,13 @@ void Ros2DataHandle::on_restart(
   data.delay = msg->delay;
   data.only_restart_when_need = msg->only_restart_when_need;
   main_common_send_msg(UB_MSG_RESTART, &data, sizeof(data));
+}
+
+void Ros2DataHandle::on_encrypt_param_write(
+    const ubeacon_driver::msg::EncryptParamWrite::SharedPtr msg) {
+  UBDataEncryptParamWrite data{};
+  std::memcpy(data.new_key, msg->new_key.data(), sizeof(data.new_key));
+  main_common_send_msg(UB_MSG_ENCRYPT_PARAM_WRITE, &data, sizeof(data));
 }
 
 void Ros2DataHandle::on_state_control(
@@ -650,6 +672,9 @@ void Ros2DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_TWR_RESULT:
     self->dispatch(*static_cast<const UBDataTwrResult *>(data));
+    break;
+  case UB_MSG_ENCRYPT_PARAM:
+    self->dispatch(*static_cast<const UBDataEncryptParam *>(data));
     break;
   default:
     break;

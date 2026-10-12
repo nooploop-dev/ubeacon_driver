@@ -279,6 +279,7 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/uwb_interface_param` | `UwbInterfaceParam` | uwb 通信参数 |
 | `~/twr_param` | `TwrParam` | 标签主动测距参数 |
 | `~/twr_result` | `TwrResult` | 网关开启测距应答后，标签与网关的测距结果 |
+| `~/encrypt_param` | `EncryptParam` | 写加密密钥的结果 |
 | `~/user_data_from_device` | `UserData` | 设备上报的用户自定义数据 |
 
 **用户 → 设备**（发布以下发命令）
@@ -287,6 +288,7 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | --- | --- | --- |
 | `~/find` | `Find` | 让设备震动/闪灯以便寻找 |
 | `~/restart` | `Restart` | 重启设备 |
+| `~/encrypt_param_write` | `EncryptParamWrite` | 写入 uwb 通信加密密钥，重启后生效 |
 | `~/state_control` | `StateControl` | 控制标签睡眠/唤醒 |
 | `~/z_measurement` | `ZMeasurement` | 输入准确的标签 z 坐标 |
 | `~/map_measurement` | `MapMeasurement` | 输入标签所在地图 |
@@ -321,7 +323,7 @@ write_param output.dis=1 smooth_window=3    先 read_param，再只改要改的�
 user_data payload=hello
 ```
 
-- 值的写法：整数支持十进制或 `0x` 十六进制，浮点直接写，布尔写 `0/1/true/false`。
+- 值的写法：整数支持十进制或 `0x` 十六进制，浮点直接写，布尔写 `0/1/true/false`；`encrypt_param_write` 的 `new_key` 写 32 位十六进制（不带 `0x`），全零表示关闭加密。
 - **写命令以设备最近一次回传的同一消息为基础**，只需给出要修改的字段；尚未收到过时（例如还没 `read_param`）必须给全所有字段，否则拒绝发送——避免把未指定的字段写成 0。
 - 日志文件 `logs/logger.log` 照常记录全部内容；界面只显示最新的一屏。
 - 加 `--no-console` 退回到纯文本输出；标准输出不是终端时（重定向、管道）自动退回。

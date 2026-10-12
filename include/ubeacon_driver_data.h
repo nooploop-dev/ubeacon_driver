@@ -22,6 +22,9 @@ enum {
   UB_MSG_FIND = 3,        // v^
   UB_MSG_RESET_PARAM = 4, // v^
 
+  UB_MSG_ENCRYPT_PARAM_WRITE = 18,                   // v
+  UB_MSG_ENCRYPT_PARAM = UB_MSG_ENCRYPT_PARAM_WRITE, // ^
+
   UB_MSG_TWR_RESULT = 45, // ^
 
   UB_MSG_ANCHOR_POS = 51,         // ^
@@ -87,6 +90,7 @@ enum {
 #define UB_TAG2ANCHOR_PDOA_COUNT_MAX 4
 #define UB_ANCHOR2TAG_DDOA_DATA_MAX 10
 #define UB_USER_DATA_PAYLOAD_MAX 64
+#define UB_ENCRYPT_KEY_SIZE 16
 
 // 重启设备，部分配置参数变更后需要重启才会生效
 typedef struct {
@@ -101,6 +105,23 @@ typedef struct {
   // 设备收到后持续对外提示（震动、闪灯）的时间 s
   uint8_t duration;
 } UBDataFind;
+
+// 写入 uwb 通信加密密钥，重启后生效。与上一次写请求（含被拒绝的）间隔不超过
+// 500ms 时设备拒绝写入。2.15.0.12 之前的固件要求同时携带当前密钥，驱动在该
+// 位置固定写 0，因此在这些固件上只有当前未加密时才能写入成功
+typedef struct {
+  // 全零表示关闭加密
+  uint8_t new_key[UB_ENCRYPT_KEY_SIZE];
+} UBDataEncryptParamWrite;
+
+// EncryptParamWrite 的回包
+typedef struct {
+  // 写入成功时 key 为新密钥，失败时 key 为全零
+  bool success;
+  // 因写请求间隔过短被拒绝
+  bool too_frequent;
+  uint8_t key[UB_ENCRYPT_KEY_SIZE];
+} UBDataEncryptParam;
 
 // ROM 工作参数
 typedef struct {

@@ -8,6 +8,8 @@
 #include <ubeacon_driver/Anchor2TagSignal.h>
 #include <ubeacon_driver/AnchorPos.h>
 #include <ubeacon_driver/Attitude.h>
+#include <ubeacon_driver/EncryptParam.h>
+#include <ubeacon_driver/EncryptParamWrite.h>
 #include <ubeacon_driver/Find.h>
 #include <ubeacon_driver/GlobalTimeStatus.h>
 #include <ubeacon_driver/Heartbeat.h>
@@ -60,10 +62,13 @@ private:
   void dispatch(const UBDataUwbInterfaceParam &data);
   void dispatch(const UBDataTwrParam &data);
   void dispatch(const UBDataTwrResult &data);
+  void dispatch(const UBDataEncryptParam &data);
 
   // 用户 -> 设备(v)，订阅话题后发送给设备
   void on_find(const ubeacon_driver::Find::ConstPtr &msg);
   void on_restart(const ubeacon_driver::Restart::ConstPtr &msg);
+  void on_encrypt_param_write(
+      const ubeacon_driver::EncryptParamWrite::ConstPtr &msg);
   void on_state_control(const ubeacon_driver::StateControl::ConstPtr &msg);
   void on_z_measurement(const ubeacon_driver::ZMeasurement::ConstPtr &msg);
   void on_map_measurement(const ubeacon_driver::MapMeasurement::ConstPtr &msg);
@@ -109,9 +114,11 @@ private:
   ros::Publisher uwb_interface_param_pub_;
   ros::Publisher twr_param_pub_;
   ros::Publisher twr_result_pub_;
+  ros::Publisher encrypt_param_pub_;
 
   ros::Subscriber find_sub_;
   ros::Subscriber restart_sub_;
+  ros::Subscriber encrypt_param_write_sub_;
   ros::Subscriber state_control_sub_;
   ros::Subscriber z_measurement_sub_;
   ros::Subscriber map_measurement_sub_;

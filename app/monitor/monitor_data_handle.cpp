@@ -145,6 +145,13 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
     spdlog::info("{},MSG_FIND: {{duration={}}}", header, data->duration);
     break;
   }
+  case UB_MSG_ENCRYPT_PARAM: {
+    auto data = get_data<UBDataEncryptParam>(msg_payload, msg_payload_size);
+    spdlog::info("{},MSG_ENCRYPT_PARAM: {{success={},too_frequent={},key={}}}",
+                 header, data->success, data->too_frequent,
+                 data2hex(data->key, UB_ENCRYPT_KEY_SIZE));
+    break;
+  }
   case UB_MSG_PARAM: {
     auto data = get_data<UBDataParam>(msg_payload, msg_payload_size);
     spdlog::info(

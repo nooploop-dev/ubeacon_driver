@@ -52,11 +52,16 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
   twr_param_pub_ = nh_->advertise<ubeacon_driver::TwrParam>("twr_param", 50);
   twr_result_pub_ =
       nh_->advertise<ubeacon_driver::TwrResult>("twr_result", 50);
+  encrypt_param_pub_ =
+      nh_->advertise<ubeacon_driver::EncryptParam>("encrypt_param", 50);
 
   // 用户 -> 设备(v)
   find_sub_ = nh_->subscribe("find", 50, &Ros1DataHandle::on_find, this);
   restart_sub_ =
       nh_->subscribe("restart", 50, &Ros1DataHandle::on_restart, this);
+  encrypt_param_write_sub_ =
+      nh_->subscribe("encrypt_param_write", 50,
+                     &Ros1DataHandle::on_encrypt_param_write, this);
   state_control_sub_ = nh_->subscribe(
       "state_control", 50, &Ros1DataHandle::on_state_control, this);
   z_measurement_sub_ = nh_->subscribe(
@@ -379,6 +384,14 @@ void Ros1DataHandle::dispatch(const UBDataTwrResult &data) {
   twr_result_pub_.publish(msg);
 }
 
+void Ros1DataHandle::dispatch(const UBDataEncryptParam &data) {
+  ubeacon_driver::EncryptParam msg;
+  msg.success = data.success;
+  msg.too_frequent = data.too_frequent;
+  std::memcpy(msg.key.data(), data.key, sizeof(data.key));
+  encrypt_param_pub_.publish(msg);
+}
+
 // ---------------- 用户 -> 设备(v) ----------------
 
 void Ros1DataHandle::on_find(const ubeacon_driver::Find::ConstPtr &msg) {
@@ -392,6 +405,13 @@ void Ros1DataHandle::on_restart(const ubeacon_driver::Restart::ConstPtr &msg) {
   data.delay = msg->delay;
   data.only_restart_when_need = msg->only_restart_when_need;
   main_common_send_msg(UB_MSG_RESTART, &data, sizeof(data));
+}
+
+void Ros1DataHandle::on_encrypt_param_write(
+    const ubeacon_driver::EncryptParamWrite::ConstPtr &msg) {
+  UBDataEncryptParamWrite data{};
+  std::memcpy(data.new_key, msg->new_key.data(), sizeof(data.new_key));
+  main_common_send_msg(UB_MSG_ENCRYPT_PARAM_WRITE, &data, sizeof(data));
 }
 
 void Ros1DataHandle::on_state_control(
@@ -604,6 +624,9 @@ void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_TWR_RESULT:
     self->dispatch(*static_cast<const UBDataTwrResult *>(data));
+    break;
+  case UB_MSG_ENCRYPT_PARAM:
+    self->dispatch(*static_cast<const UBDataEncryptParam *>(data));
     break;
   default:
     break;

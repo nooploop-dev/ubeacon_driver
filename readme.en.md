@@ -279,6 +279,7 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/uwb_interface_param` | `UwbInterfaceParam` | UWB parameters |
 | `~/twr_param` | `TwrParam` | Tag-initiated ranging parameters |
 | `~/twr_result` | `TwrResult` | Tag-to-gateway ranging result, once the gateway answers ranging for this tag |
+| `~/encrypt_param` | `EncryptParam` | Result of writing the encryption key |
 | `~/user_data_from_device` | `UserData` | User-defined data reported by the device |
 
 **User → Device** (publish to send commands)
@@ -287,6 +288,7 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | --- | --- | --- |
 | `~/find` | `Find` | Make the device vibrate/blink to locate it |
 | `~/restart` | `Restart` | Restart the device |
+| `~/encrypt_param_write` | `EncryptParamWrite` | Write the UWB encryption key; takes effect after restart |
 | `~/state_control` | `StateControl` | Put the tag to sleep or wake it |
 | `~/z_measurement` | `ZMeasurement` | Supply an accurate tag z coordinate |
 | `~/map_measurement` | `MapMeasurement` | Supply the map the tag is on |
@@ -321,7 +323,7 @@ write_param output.dis=1 smooth_window=3    read_param first, then change only w
 user_data payload=hello
 ```
 
-- Values: integers in decimal or `0x` hex, floats as-is, booleans as `0/1/true/false`.
+- Values: integers in decimal or `0x` hex, floats as-is, booleans as `0/1/true/false`; the `new_key` of `encrypt_param_write` is 32 hex digits without `0x`, all zeros turns encryption off.
 - **Write commands start from the last copy of that message received from the device**, so only the fields you change need to be given. Before anything has been received (e.g. before `read_param`), every field is required and the command is refused otherwise, so unspecified fields are never silently written as 0.
 - The log file `logs/logger.log` still records everything; the screen only shows the most recent page.
 - Add `--no-console` to fall back to plain text output; this happens automatically when stdout is not a terminal (redirection, pipes).

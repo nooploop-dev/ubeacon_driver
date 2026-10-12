@@ -79,6 +79,24 @@ bool set_user_payload(void *data, const std::string &value) {
   return true;
 }
 
+// ENCRYPT_PARAM_WRITE的密钥按32位十六进制填入
+bool set_encrypt_key(void *data, const std::string &value) {
+  auto *param = static_cast<UBDataEncryptParamWrite *>(data);
+  if (value.size() != 2 * UB_ENCRYPT_KEY_SIZE) {
+    return false;
+  }
+  for (char c : value) {
+    if (!std::isxdigit((unsigned char)c)) {
+      return false;
+    }
+  }
+  for (int i = 0; i < UB_ENCRYPT_KEY_SIZE; i++) {
+    param->new_key[i] =
+        (uint8_t)std::stoul(value.substr(2 * i, 2), nullptr, 16);
+  }
+  return true;
+}
+
 struct Msg {
   const char *name;
   ub_msg_id_t id;
@@ -96,6 +114,10 @@ const std::vector<Msg> &messages() {
         FIELD(UBDataRestart, only_restart_when_need)}},
       {"find", UB_MSG_FIND, sizeof(UBDataFind), {FIELD(UBDataFind, duration)}},
       {"reset_param", UB_MSG_RESET_PARAM, 0, {}},
+      {"encrypt_param_write",
+       UB_MSG_ENCRYPT_PARAM_WRITE,
+       sizeof(UBDataEncryptParamWrite),
+       {Field{"new_key", set_encrypt_key}}},
       {"read_param", UB_MSG_READ_PARAM, 0, {}},
       {"write_param",
        UB_MSG_WRITE_PARAM,

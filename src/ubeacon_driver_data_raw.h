@@ -60,6 +60,18 @@ typedef struct {
   uint8_t duration;
 } UBRawDataFind;
 
+typedef struct {
+  uint8_t reserved[UB_ENCRYPT_KEY_SIZE];
+  uint8_t new_key[UB_ENCRYPT_KEY_SIZE];
+} UBRawDataEncryptParamWrite;
+
+typedef struct {
+  uint8_t success : 1;
+  uint8_t too_frequent : 1;
+  uint8_t : 0;
+  uint8_t key[UB_ENCRYPT_KEY_SIZE];
+} UBRawDataEncryptParam;
+
 // 未在 UBDataParam 中公开的字段（expect_location_frequency / arg* /
 // init_point_count / map_switch_window / locate_with_all_maps /
 // deprecated_* / output_delay_ms）仍占据线上位置：读取时忽略，写入时由
@@ -326,6 +338,34 @@ static inline void ub_data_find_to_raw(const UBDataFind *data, void *buf,
   UBRawDataFind *raw = (UBRawDataFind *)buf;
   memset(raw, 0, sizeof(*raw));
   raw->duration = data->duration;
+  *size = (int)sizeof(*raw);
+}
+
+static inline void ub_data_encrypt_param_write_from_raw(
+    const UBRawDataEncryptParamWrite *raw, UBDataEncryptParamWrite *data) {
+  memcpy(data->new_key, raw->new_key, sizeof(data->new_key));
+}
+static inline void ub_data_encrypt_param_write_to_raw(
+    const UBDataEncryptParamWrite *data, void *buf, int *size) {
+  UBRawDataEncryptParamWrite *raw = (UBRawDataEncryptParamWrite *)buf;
+  memset(raw, 0, sizeof(*raw));
+  memcpy(raw->new_key, data->new_key, sizeof(raw->new_key));
+  *size = (int)sizeof(*raw);
+}
+
+static inline void ub_data_encrypt_param_from_raw(
+    const UBRawDataEncryptParam *raw, UBDataEncryptParam *data) {
+  data->success = raw->success != 0;
+  data->too_frequent = raw->too_frequent != 0;
+  memcpy(data->key, raw->key, sizeof(data->key));
+}
+static inline void ub_data_encrypt_param_to_raw(const UBDataEncryptParam *data,
+                                                void *buf, int *size) {
+  UBRawDataEncryptParam *raw = (UBRawDataEncryptParam *)buf;
+  memset(raw, 0, sizeof(*raw));
+  raw->success = data->success ? 1 : 0;
+  raw->too_frequent = data->too_frequent ? 1 : 0;
+  memcpy(raw->key, data->key, sizeof(raw->key));
   *size = (int)sizeof(*raw);
 }
 

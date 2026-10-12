@@ -80,6 +80,10 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_FIND:
     UB_MSG_DATA_ENCODE(UBRawDataFind, ub_data_find_to_raw, UBDataFind);
     break;
+  case UB_MSG_ENCRYPT_PARAM:
+    UB_MSG_DATA_ENCODE(UBRawDataEncryptParam, ub_data_encrypt_param_to_raw,
+                       UBDataEncryptParam);
+    break;
   case UB_MSG_ANCHOR_POS:
     UB_MSG_DATA_ENCODE(UBRawDataAnchorPos, ub_data_anchor_pos_to_raw,
                        UBDataAnchorPos);
@@ -217,6 +221,11 @@ static int ub_encode_user_to_dev(ub_msg_id_t msg_id, const void *data,
   case UB_MSG_FIND:
     UB_MSG_DATA_ENCODE(UBRawDataFind, ub_data_find_to_raw, UBDataFind);
     break;
+  case UB_MSG_ENCRYPT_PARAM_WRITE:
+    UB_MSG_DATA_ENCODE(UBRawDataEncryptParamWrite,
+                       ub_data_encrypt_param_write_to_raw,
+                       UBDataEncryptParamWrite);
+    break;
   case UB_MSG_WRITE_PARAM:
     UB_MSG_DATA_ENCODE(UBRawDataParam, ub_data_param_to_raw, UBDataParam);
     break;
@@ -292,6 +301,10 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
     break;
   case UB_MSG_FIND:
     UB_MSG_DATA_DECODE(UBRawDataFind, ub_data_find_from_raw, UBDataFind);
+    break;
+  case UB_MSG_ENCRYPT_PARAM:
+    UB_MSG_DATA_DECODE(UBRawDataEncryptParam, ub_data_encrypt_param_from_raw,
+                       UBDataEncryptParam);
     break;
   case UB_MSG_ANCHOR_POS:
     UB_MSG_DATA_DECODE(UBRawDataAnchorPos, ub_data_anchor_pos_from_raw,
@@ -424,6 +437,11 @@ static int ub_decode_user_to_dev(ub_msg_id_t msg_id, const void *payload,
     break;
   case UB_MSG_FIND:
     UB_MSG_DATA_DECODE(UBRawDataFind, ub_data_find_from_raw, UBDataFind);
+    break;
+  case UB_MSG_ENCRYPT_PARAM_WRITE:
+    UB_MSG_DATA_DECODE(UBRawDataEncryptParamWrite,
+                       ub_data_encrypt_param_write_from_raw,
+                       UBDataEncryptParamWrite);
     break;
   case UB_MSG_WRITE_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataParam, ub_data_param_from_raw, UBDataParam);

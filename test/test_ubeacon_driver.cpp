@@ -23,6 +23,20 @@ TEST_CASE("round trip: find") {
   roundtrip(UB_MSG_FIND, d);
 }
 
+TEST_CASE("round trip: encrypt_param") {
+  // 同一 id 在两个方向上对应不同结构
+  UBDataEncryptParamWrite w{};
+  for (int i = 0; i < UB_ENCRYPT_KEY_SIZE; ++i) {
+    w.new_key[i] = static_cast<uint8_t>(0xA0 + i);
+  }
+  roundtrip_to_dev(UB_MSG_ENCRYPT_PARAM_WRITE, w);
+
+  UBDataEncryptParam r{};
+  r.success = true;
+  std::memcpy(r.key, w.new_key, sizeof(r.key));
+  roundtrip_to_user(UB_MSG_ENCRYPT_PARAM, r);
+}
+
 TEST_CASE("round trip: param") {
   UBDataParam d{};
   d.expect_z = 1.2f;
@@ -497,6 +511,49 @@ TEST_CASE("scaling: uwb_interface_param field positions") {
   REQUIRE(d.max_rx_interval_ms == 1000);
   REQUIRE(d.min_tx_interval_ms == 100);
   REQUIRE(d.random_window_ms == 20);
+}
+
+TEST_CASE("encrypt_param_write puts new_key after 16 reserved bytes") {
+  UBDataEncryptParamWrite d{};
+  for (int i = 0; i < UB_ENCRYPT_KEY_SIZE; ++i) {
+    d.new_key[i] = static_cast<uint8_t>(i + 1);
+  }
+  uint8_t frame[UB_FRAME_SIZE_MAX];
+  const int n = ub_prepare_msg_to_dev(UB_MSG_ENCRYPT_PARAM_WRITE, &d, frame,
+                                      sizeof(frame));
+  REQUIRE(n > 0);
+  // sof(1) + size(2) + frame_id(1) + msg id(1) + msg size(1) 之后是 payload
+  REQUIRE((frame[5] & 0x7F) == 2 * UB_ENCRYPT_KEY_SIZE);
+  const uint8_t *payload = frame + 6;
+  for (int i = 0; i < UB_ENCRYPT_KEY_SIZE; ++i) {
+    REQUIRE(payload[i] == 0);
+    REQUIRE(payload[UB_ENCRYPT_KEY_SIZE + i] == i + 1);
+  }
+}
+
+TEST_CASE("scaling: encrypt_param flag bit positions") {
+  // 线格式 17 字节：[0] bit0 success, bit1 too_frequent  [1..16] key
+  std::vector<uint8_t> payload(1 + UB_ENCRYPT_KEY_SIZE, 0);
+  payload[0] = 0x02;
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ENCRYPT_PARAM, payload));
+  REQUIRE(cap.msgs.size() == 1);
+  REQUIRE(cap.msgs[0].data.size() == sizeof(UBDataEncryptParam));
+  const auto &rejected =
+      *reinterpret_cast<const UBDataEncryptParam *>(cap.msgs[0].data.data());
+  REQUIRE(rejected.success == false);
+  REQUIRE(rejected.too_frequent == true);
+
+  payload[0] = 0x01;
+  payload[1] = 0x5A;
+  payload[UB_ENCRYPT_KEY_SIZE] = 0xA5;
+  cap = parse_from_dev(make_up_frame(UB_MSG_ENCRYPT_PARAM, payload));
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &ok =
+      *reinterpret_cast<const UBDataEncryptParam *>(cap.msgs[0].data.data());
+  REQUIRE(ok.success == true);
+  REQUIRE(ok.too_frequent == false);
+  REQUIRE(ok.key[0] == 0x5A);
+  REQUIRE(ok.key[UB_ENCRYPT_KEY_SIZE - 1] == 0xA5);
 }
 
 TEST_CASE("scaling: twr_param field positions") {

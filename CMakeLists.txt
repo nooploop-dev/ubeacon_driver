@@ -93,6 +93,8 @@ if(UB_BUILD_ROS1)
             Anchor2TagSignal.msg
             Anchor2TagSignalItem.msg
             Attitude.msg
+            EncryptParam.msg
+            EncryptParamWrite.msg
             Find.msg
             GlobalTimeStatus.msg
             Heartbeat.msg
@@ -134,6 +136,8 @@ if(UB_BUILD_ROS2)
             "msg/Anchor2TagSignal.msg"
             "msg/Anchor2TagSignalItem.msg"
             "msg/Attitude.msg"
+            "msg/EncryptParam.msg"
+            "msg/EncryptParamWrite.msg"
             "msg/Find.msg"
             "msg/GlobalTimeStatus.msg"
             "msg/Heartbeat.msg"
