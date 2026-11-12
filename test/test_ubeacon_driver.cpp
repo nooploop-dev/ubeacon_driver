@@ -311,6 +311,27 @@ TEST_CASE("round trip: anchor_pos") {
   roundtrip_to_user(UB_MSG_ANCHOR_POS, d);
 }
 
+TEST_CASE("round trip: anchor_link_data") {
+  UBDataAnchorLinkData d{};
+  d.local_time_us = 123123123;
+  d.src = 0x4001;
+  d.dst = 0x4002;
+  d.rx_rate = 0.8f;
+  d.is_dis_valid = true;
+  d.area_id = 3;
+  d.dis = 12.34f;
+  d.dis_std = 0.2f;
+  d.uwb_clock_offset_ppm = -1.5f;
+  d.mcu_clock_offset_ppm = 2.5f;
+  roundtrip_to_user(UB_MSG_ANCHOR_LINK_DATA, d);
+
+  // 信标尚无测距结果时 dis / dis_std 取量程边界
+  d.is_dis_valid = false;
+  d.dis = -327.68f;
+  d.dis_std = 5.1f;
+  roundtrip_to_user(UB_MSG_ANCHOR_LINK_DATA, d);
+}
+
 TEST_CASE("round trip: anchor_link_status") {
   UBDataAnchorLinkStatus d{};
   d.local_time_us = 987654321;
@@ -597,6 +618,30 @@ TEST_CASE("scaling: twr_result field positions") {
   REQUIRE(d.peer == 0x1001);
   REQUIRE(d.dis == Approx(12.34f));            // 1234cm
   REQUIRE(d.clock_offset_ppm == Approx(-1.5f)); // -150
+}
+
+TEST_CASE("scaling: anchor_link_data field positions") {
+  // 线格式 21 字节：[0..7] local_time_us  [8..9] src  [10..11] dst
+  // [12] _rx_rate(/255)  [13] is_dis_valid:1 | area_id:4  [14..15] dis_cm
+  // [16] _dis_std(/50)  [17..18] [19..20] uwb / mcu 频偏(0.01ppm)
+  std::vector<uint8_t> payload = {0x15, 0xCD, 0x5B, 0x07, 0x00, 0x00, 0x00,
+                                  0x00, 0x01, 0x40, 0x02, 0x40, 0xCC, 0x07,
+                                  0xD2, 0x04, 0x0A, 0x6A, 0xFF, 0xFA, 0x00};
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ANCHOR_LINK_DATA, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d = *reinterpret_cast<const UBDataAnchorLinkData *>(
+      cap.msgs[0].data.data());
+  REQUIRE(d.local_time_us == 123456789);
+  REQUIRE(d.src == 0x4001);
+  REQUIRE(d.dst == 0x4002);
+  REQUIRE(d.rx_rate == Approx(0.8f));               // 204 / 255
+  REQUIRE(d.is_dis_valid == true);
+  REQUIRE(d.area_id == 3);
+  REQUIRE(d.dis == Approx(12.34f));                 // 1234cm
+  REQUIRE(d.dis_std == Approx(0.2f));               // 10 / 50
+  REQUIRE(d.uwb_clock_offset_ppm == Approx(-1.5f)); // -150
+  REQUIRE(d.mcu_clock_offset_ppm == Approx(2.5f));  // 250
 }
 
 TEST_CASE("scaling: anchor_link_status field positions") {
@@ -939,6 +984,9 @@ TEST_CASE("uplink-only messages cannot be built as a downlink frame") {
   UBDataTwrResult tr{};
   REQUIRE(ub_prepare_msg_to_dev(UB_MSG_TWR_RESULT, &tr, frame, sizeof(frame)) <
           0);
+  UBDataAnchorLinkData ald{};
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_ANCHOR_LINK_DATA, &ald, frame,
+                                sizeof(frame)) < 0);
   UBDataAnchorLinkStatus als{};
   REQUIRE(ub_prepare_msg_to_dev(UB_MSG_ANCHOR_LINK_STATUS, &als, frame,
                                 sizeof(frame)) < 0);

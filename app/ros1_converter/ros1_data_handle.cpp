@@ -28,6 +28,8 @@ Ros1DataHandle::Ros1DataHandle(ros::NodeHandle *nh) : nh_(nh) {
       nh_->advertise<ubeacon_driver::Anchor2TagDdoa>("anchor2tag_ddoa", 50);
   anchor_pos_pub_ =
       nh_->advertise<ubeacon_driver::AnchorPos>("anchor_pos", 50);
+  anchor_link_data_pub_ = nh_->advertise<ubeacon_driver::AnchorLinkData>(
+      "anchor_link_data", 50);
   anchor_link_status_pub_ = nh_->advertise<ubeacon_driver::AnchorLinkStatus>(
       "anchor_link_status", 50);
   global_time_status_pub_ = nh_->advertise<ubeacon_driver::GlobalTimeStatus>(
@@ -244,6 +246,21 @@ void Ros1DataHandle::dispatch(const UBDataAnchorPos &data) {
   msg.map_id = data.map_id;
   msg.relative_map_z = data.relative_map_z;
   anchor_pos_pub_.publish(msg);
+}
+
+void Ros1DataHandle::dispatch(const UBDataAnchorLinkData &data) {
+  ubeacon_driver::AnchorLinkData msg;
+  msg.local_time_us = data.local_time_us;
+  msg.src = data.src;
+  msg.dst = data.dst;
+  msg.rx_rate = data.rx_rate;
+  msg.is_dis_valid = data.is_dis_valid;
+  msg.area_id = data.area_id;
+  msg.dis = data.dis;
+  msg.dis_std = data.dis_std;
+  msg.uwb_clock_offset_ppm = data.uwb_clock_offset_ppm;
+  msg.mcu_clock_offset_ppm = data.mcu_clock_offset_ppm;
+  anchor_link_data_pub_.publish(msg);
 }
 
 void Ros1DataHandle::dispatch(const UBDataAnchorLinkStatus &data) {
@@ -602,6 +619,9 @@ void Ros1DataHandle::on_frame_msg(void *arg, ub_msg_id_t msg_id,
     break;
   case UB_MSG_ANCHOR_POS:
     self->dispatch(*static_cast<const UBDataAnchorPos *>(data));
+    break;
+  case UB_MSG_ANCHOR_LINK_DATA:
+    self->dispatch(*static_cast<const UBDataAnchorLinkData *>(data));
     break;
   case UB_MSG_ANCHOR_LINK_STATUS:
     self->dispatch(*static_cast<const UBDataAnchorLinkStatus *>(data));

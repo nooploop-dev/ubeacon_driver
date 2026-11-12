@@ -27,6 +27,7 @@ enum {
 
   UB_MSG_TWR_RESULT = 45, // ^
 
+  UB_MSG_ANCHOR_LINK_DATA = 50,   // ^
   UB_MSG_ANCHOR_POS = 51,         // ^
   UB_MSG_ANCHOR_LINK_STATUS = 53, // ^
   UB_MSG_GLOBAL_TIME_STATUS = 58, // ^
@@ -457,6 +458,27 @@ typedef struct {
   // 当前节点时间同步跟随的目标设备
   ub_addr_t src;
 } UBDataGlobalTimeStatus;
+
+// 标签收到的信标间链路数据，需开启 Param output.anchor_link_data。
+// 参与定位的信标 dst 跟随主信标 src 的 mccp 发出 sccp，标签每收到一条 sccp
+// 输出一次，内容是 dst 对 src 这条链路的近期统计
+typedef struct {
+  ub_local_time_us_t local_time_us;
+  ub_addr_t src;
+  ub_addr_t dst;
+  // dst 近期收到 src mccp 的收包率 0~1
+  float rx_rate;
+  // 为 false 时 dst 尚无与 src 的测距结果，dis 与 dis_std 取各自量程的边界值
+  bool is_dis_valid;
+  uint8_t area_id;
+  // dst 与 src 的近期测距中值 m，量程 ±327.67
+  float dis;
+  // 近期测距标准差 m，0~5.1
+  float dis_std;
+  // dst 测得的与 src 之间的频偏，量程 ±327.67
+  float uwb_clock_offset_ppm;
+  float mcu_clock_offset_ppm;
+} UBDataAnchorLinkData;
 
 // 标签收到的信标坐标信息
 typedef struct {

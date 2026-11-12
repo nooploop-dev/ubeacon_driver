@@ -87,6 +87,7 @@ if(UB_BUILD_ROS1)
     )
     add_message_files(
             FILES
+            AnchorLinkData.msg
             AnchorLinkStatus.msg
             AnchorPos.msg
             Anchor2TagDdoa.msg
@@ -131,6 +132,7 @@ if(UB_BUILD_ROS2)
     find_package(rosidl_default_generators REQUIRED)
     rosidl_generate_interfaces(
             ${PKG_NAME}
+            "msg/AnchorLinkData.msg"
             "msg/AnchorLinkStatus.msg"
             "msg/AnchorPos.msg"
             "msg/Anchor2TagDdoa.msg"

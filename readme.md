@@ -261,6 +261,7 @@ ros2 topic echo /ubeacon_driver/location_result     # ROS2
 | `~/location_result` | `LocationResult` | 定位结果（位置/速度/噪声） |
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | 同一份定位结果的标准消息，供 rviz 直接显示 |
 | `~/anchor_pos` | `AnchorPos` | 标签收到的信标坐标信息 |
+| `~/anchor_link_data` | `AnchorLinkData` | 信标间链路的收包率、测距与频偏，需开启 `output.anchor_link_data` |
 | `~/anchor_link_status` | `AnchorLinkStatus` | 信标尚未同步上的链路，需开启 `output.anchor_link_status` |
 | `~/anchor2tag_signal` | `Anchor2TagSignal` | 每次收到参与定位的信标信号后输出的信号数据 |
 | `~/tag2anchor_dis` | `Tag2AnchorDis` | 标签与信标之间的测距结果 |

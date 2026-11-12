@@ -84,6 +84,10 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataEncryptParam, ub_data_encrypt_param_to_raw,
                        UBDataEncryptParam);
     break;
+  case UB_MSG_ANCHOR_LINK_DATA:
+    UB_MSG_DATA_ENCODE(UBRawDataAnchorLinkData, ub_data_anchor_link_data_to_raw,
+                       UBDataAnchorLinkData);
+    break;
   case UB_MSG_ANCHOR_POS:
     UB_MSG_DATA_ENCODE(UBRawDataAnchorPos, ub_data_anchor_pos_to_raw,
                        UBDataAnchorPos);
@@ -310,6 +314,10 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_ENCRYPT_PARAM:
     UB_MSG_DATA_DECODE(UBRawDataEncryptParam, ub_data_encrypt_param_from_raw,
                        UBDataEncryptParam);
+    break;
+  case UB_MSG_ANCHOR_LINK_DATA:
+    UB_MSG_DATA_DECODE(UBRawDataAnchorLinkData,
+                       ub_data_anchor_link_data_from_raw, UBDataAnchorLinkData);
     break;
   case UB_MSG_ANCHOR_POS:
     UB_MSG_DATA_DECODE(UBRawDataAnchorPos, ub_data_anchor_pos_from_raw,

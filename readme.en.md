@@ -261,6 +261,7 @@ All topics are namespaced under the node name, i.e. `/ubeacon_driver/<topic>`. M
 | `~/location_result` | `LocationResult` | Positioning result (position/velocity/noise) |
 | `~/location_result_pose` | `geometry_msgs/PoseStamped` | The same result as a standard message, for direct display in rviz |
 | `~/anchor_pos` | `AnchorPos` | Anchor coordinates received by the tag |
+| `~/anchor_link_data` | `AnchorLinkData` | Packet reception rate, ranging and clock offset of an anchor-to-anchor link; requires `output.anchor_link_data` |
 | `~/anchor_link_status` | `AnchorLinkStatus` | Links an anchor has not yet synchronized; requires `output.anchor_link_status` |
 | `~/anchor2tag_signal` | `Anchor2TagSignal` | Signal data emitted each time anchor signals used for positioning are received |
 | `~/tag2anchor_dis` | `Tag2AnchorDis` | Tag-to-anchor ranging results |

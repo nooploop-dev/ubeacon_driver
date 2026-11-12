@@ -336,6 +336,18 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
     foxglove_viz::publish(*data);
     break;
   }
+  case UB_MSG_ANCHOR_LINK_DATA: {
+    auto data = get_data<UBDataAnchorLinkData>(msg_payload, msg_payload_size);
+    spdlog::info("{},MSG_ANCHOR_LINK_DATA: {{local_time_us={},src={:#06x},"
+                 "dst={:#06x},rx_rate={:.3f},is_dis_valid={},area_id={},"
+                 "dis={:.2f},dis_std={:.2f},uwb_clock_offset_ppm={:.2f},"
+                 "mcu_clock_offset_ppm={:.2f}}}",
+                 header, data->local_time_us, data->src, data->dst,
+                 data->rx_rate, data->is_dis_valid, data->area_id, data->dis,
+                 data->dis_std, data->uwb_clock_offset_ppm,
+                 data->mcu_clock_offset_ppm);
+    break;
+  }
   case UB_MSG_ANCHOR_LINK_STATUS: {
     auto data = get_data<UBDataAnchorLinkStatus>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_ANCHOR_LINK_STATUS: {{local_time_us={},src={:#06x},"

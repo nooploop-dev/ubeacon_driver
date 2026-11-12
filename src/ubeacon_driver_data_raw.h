@@ -302,6 +302,21 @@ typedef struct {
 } UBRawDataGlobalTimeStatus;
 
 typedef struct {
+  ub_local_time_us_t local_time_us;
+  ub_addr_t src;
+  ub_addr_t dst;
+  uint8_t _rx_rate; // rx_rate = _rx_rate / 255
+  uint8_t is_dis_valid : 1;
+  uint8_t area_id : 4;
+  uint8_t : 0;
+  int16_t dis_cm;
+  uint8_t _dis_std; // dis_std = _dis_std / 50
+  // *_clock_offset_ppm = _*_clock_offset_ppm * 0.01
+  int16_t _uwb_clock_offset_ppm;
+  int16_t _mcu_clock_offset_ppm;
+} UBRawDataAnchorLinkData;
+
+typedef struct {
   ub_local_time_us_t local_time;
   ub_addr_t src;
   int32_t pos_cm[3];
@@ -928,6 +943,38 @@ static inline void ub_data_global_time_status_to_raw(
   raw->ttl = data->ttl & 0x3F;
   raw->time = data->time_us & 0xFFFFFFFFFFFFFFULL; // 56 位
   raw->src = data->src;
+  *size = (int)sizeof(*raw);
+}
+
+static inline void ub_data_anchor_link_data_from_raw(
+    const UBRawDataAnchorLinkData *raw, UBDataAnchorLinkData *data) {
+  data->local_time_us = raw->local_time_us;
+  data->src = raw->src;
+  data->dst = raw->dst;
+  data->rx_rate = raw->_rx_rate / 255.0f;
+  data->is_dis_valid = raw->is_dis_valid != 0;
+  data->area_id = raw->area_id;
+  data->dis = raw->dis_cm * 0.01f;
+  data->dis_std = raw->_dis_std / 50.0f;
+  data->uwb_clock_offset_ppm = raw->_uwb_clock_offset_ppm * 0.01f;
+  data->mcu_clock_offset_ppm = raw->_mcu_clock_offset_ppm * 0.01f;
+}
+static inline void ub_data_anchor_link_data_to_raw(
+    const UBDataAnchorLinkData *data, void *buf, int *size) {
+  UBRawDataAnchorLinkData *raw = (UBRawDataAnchorLinkData *)buf;
+  memset(raw, 0, sizeof(*raw));
+  raw->local_time_us = data->local_time_us;
+  raw->src = data->src;
+  raw->dst = data->dst;
+  raw->_rx_rate = (uint8_t)ub_round_i32(data->rx_rate * 255.0f);
+  raw->is_dis_valid = data->is_dis_valid ? 1 : 0;
+  raw->area_id = data->area_id & 0x0F;
+  raw->dis_cm = (int16_t)ub_round_i32(data->dis * 100.0f);
+  raw->_dis_std = (uint8_t)ub_round_i32(data->dis_std * 50.0f);
+  raw->_uwb_clock_offset_ppm =
+      (int16_t)ub_round_i32(data->uwb_clock_offset_ppm * 100.0f);
+  raw->_mcu_clock_offset_ppm =
+      (int16_t)ub_round_i32(data->mcu_clock_offset_ppm * 100.0f);
   *size = (int)sizeof(*raw);
 }
 
