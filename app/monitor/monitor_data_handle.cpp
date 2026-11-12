@@ -336,6 +336,15 @@ void on_frame_msg(void *arg, ub_msg_id_t msg_id, const void *msg_payload,
     foxglove_viz::publish(*data);
     break;
   }
+  case UB_MSG_ANCHOR_LINK_STATUS: {
+    auto data = get_data<UBDataAnchorLinkStatus>(msg_payload, msg_payload_size);
+    spdlog::info("{},MSG_ANCHOR_LINK_STATUS: {{local_time_us={},src={:#06x},"
+                 "wait_syncs=[{:#06x}]}}",
+                 header, data->local_time_us, data->src,
+                 fmt::join(data->wait_syncs,
+                           data->wait_syncs + data->wait_sync_count, ","));
+    break;
+  }
   case UB_MSG_GLOBAL_TIME_STATUS: {
     auto data = get_data<UBDataGlobalTimeStatus>(msg_payload, msg_payload_size);
     spdlog::info("{},MSG_GLOBAL_TIME_STATUS: "

@@ -311,6 +311,17 @@ TEST_CASE("round trip: anchor_pos") {
   roundtrip_to_user(UB_MSG_ANCHOR_POS, d);
 }
 
+TEST_CASE("round trip: anchor_link_status") {
+  UBDataAnchorLinkStatus d{};
+  d.local_time_us = 987654321;
+  d.src = 0x4001;
+  d.wait_sync_count = 3;
+  d.wait_syncs[0] = 0x4002;
+  d.wait_syncs[1] = 0x4003;
+  d.wait_syncs[2] = 0x5001;
+  roundtrip_to_user(UB_MSG_ANCHOR_LINK_STATUS, d);
+}
+
 // ============================================================
 // 2. 定标正确性
 //    仅有 round-trip 不足以证明定标系数正确（一对互逆但都错的系数也能通过），
@@ -588,6 +599,25 @@ TEST_CASE("scaling: twr_result field positions") {
   REQUIRE(d.clock_offset_ppm == Approx(-1.5f)); // -150
 }
 
+TEST_CASE("scaling: anchor_link_status field positions") {
+  // 头部 12 字节：[0..7] local_time_us  [8..9] src  [10] reserved
+  // [11] wait_sync_count，之后每个元素 2 字节，只发送 wait_sync_count 个
+  std::vector<uint8_t> payload = {0x15, 0xCD, 0x5B, 0x07, 0x00, 0x00,
+                                  0x00, 0x00, 0x01, 0x40, 0xEE, 0x02,
+                                  0x02, 0x40, 0x01, 0x50};
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ANCHOR_LINK_STATUS, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d = *reinterpret_cast<const UBDataAnchorLinkStatus *>(
+      cap.msgs[0].data.data());
+  REQUIRE(d.local_time_us == 123456789);
+  REQUIRE(d.src == 0x4001);
+  REQUIRE(d.wait_sync_count == 2);
+  REQUIRE(d.wait_syncs[0] == 0x4002);
+  REQUIRE(d.wait_syncs[1] == 0x5001);
+  REQUIRE(d.wait_syncs[2] == 0);
+}
+
 TEST_CASE("scaling: anchor2tag_ddoa group fields and ddoa_cm") {
   // 头部：[0..7] begin_time  [8] group_count:4 | group_index:4  [9] count
   // 每个元素 6 字节：a0(2) a1(2) ddoa_cm(int16)
@@ -748,6 +778,23 @@ TEST_CASE("variable length messages only send valid elements") {
   REQUIRE(n9 == n0 + 9 * 4);
 }
 
+TEST_CASE("anchor_link_status only sends wait_sync_count addresses") {
+  auto frame_size_for = [](uint8_t count) {
+    UBDataAnchorLinkStatus d{};
+    d.wait_sync_count = count;
+    uint8_t frame[UB_FRAME_SIZE_MAX];
+    return ub_prepare_msg_to_user(kUid, UB_FRAME_ID_TAG_UP,
+                                  UB_MSG_ANCHOR_LINK_STATUS, &d, frame,
+                                  sizeof(frame));
+  };
+
+  const int n0 = frame_size_for(0);
+  REQUIRE(n0 > 0);
+  REQUIRE(frame_size_for(5) == n0 + 5 * 2);
+  REQUIRE(frame_size_for(UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX) ==
+          n0 + UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX * 2);
+}
+
 TEST_CASE("out-of-range count from a corrupt device is clamped") {
   // count 是 4 位（最大 15），但数组只有 9 个元素；必须钳位而不是越界
   std::vector<uint8_t> payload(10 + UB_ANCHOR2TAG_SIGNAL_DATA_MAX * 7, 0);
@@ -758,6 +805,18 @@ TEST_CASE("out-of-range count from a corrupt device is clamped") {
   const auto &d = *reinterpret_cast<const UBDataAnchor2TagSignal *>(
       cap.msgs[0].data.data());
   REQUIRE(d.count == UB_ANCHOR2TAG_SIGNAL_DATA_MAX);
+}
+
+TEST_CASE("out-of-range wait_sync_count from a corrupt device is clamped") {
+  // wait_sync_count 是整字节，数组只有 16 个元素
+  std::vector<uint8_t> payload(12 + UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX * 2, 0);
+  payload[11] = 0xFF;
+  auto cap = parse_from_dev(make_up_frame(UB_MSG_ANCHOR_LINK_STATUS, payload));
+
+  REQUIRE(cap.msgs.size() == 1);
+  const auto &d = *reinterpret_cast<const UBDataAnchorLinkStatus *>(
+      cap.msgs[0].data.data());
+  REQUIRE(d.wait_sync_count == UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX);
 }
 
 // ============================================================
@@ -880,6 +939,9 @@ TEST_CASE("uplink-only messages cannot be built as a downlink frame") {
   UBDataTwrResult tr{};
   REQUIRE(ub_prepare_msg_to_dev(UB_MSG_TWR_RESULT, &tr, frame, sizeof(frame)) <
           0);
+  UBDataAnchorLinkStatus als{};
+  REQUIRE(ub_prepare_msg_to_dev(UB_MSG_ANCHOR_LINK_STATUS, &als, frame,
+                                sizeof(frame)) < 0);
 }
 
 TEST_CASE("downlink-only messages cannot be built as an uplink frame") {

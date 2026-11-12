@@ -28,6 +28,7 @@ enum {
   UB_MSG_TWR_RESULT = 45, // ^
 
   UB_MSG_ANCHOR_POS = 51,         // ^
+  UB_MSG_ANCHOR_LINK_STATUS = 53, // ^
   UB_MSG_GLOBAL_TIME_STATUS = 58, // ^
 
   UB_MSG_READ_PARAM = 60,            // v
@@ -88,6 +89,7 @@ enum {
 #define UB_TAG2ANCHOR_DIS_DATA_MAX 9
 #define UB_TAG2ANCHOR_PDOA_DATA_MAX 9
 #define UB_TAG2ANCHOR_PDOA_COUNT_MAX 4
+#define UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX 16
 #define UB_ANCHOR2TAG_DDOA_DATA_MAX 10
 #define UB_USER_DATA_PAYLOAD_MAX 64
 #define UB_ENCRYPT_KEY_SIZE 16
@@ -467,6 +469,19 @@ typedef struct {
   // map_z = pos[2] + relative_map_z，单位 m
   float relative_map_z;
 } UBDataAnchorPos;
+
+// 标签收到的信标链路同步状态，需开启 Param output.anchor_link_status。
+// 信标只在存在未同步链路时随 mccp 广播，全部同步后不再发送
+typedef struct {
+  ub_local_time_us_t local_time_us;
+  // 广播该状态的信标
+  ub_addr_t src;
+  // wait_syncs 中的有效元素数量
+  uint8_t wait_sync_count;
+  // src 应监听但尚未同步上的信标：先是当前区域的 location_link，再是
+  // mesh_link。信标服务多个区域时，location_link 部分随广播所在区域变化
+  ub_addr_t wait_syncs[UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX];
+} UBDataAnchorLinkStatus;
 
 #ifdef __cplusplus
 }

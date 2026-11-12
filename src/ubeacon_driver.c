@@ -88,6 +88,11 @@ static int ub_encode_dev_to_user(ub_msg_id_t msg_id, const void *data,
     UB_MSG_DATA_ENCODE(UBRawDataAnchorPos, ub_data_anchor_pos_to_raw,
                        UBDataAnchorPos);
     break;
+  case UB_MSG_ANCHOR_LINK_STATUS:
+    UB_MSG_DATA_ENCODE(UBRawDataAnchorLinkStatus,
+                       ub_data_anchor_link_status_to_raw,
+                       UBDataAnchorLinkStatus);
+    break;
   case UB_MSG_GLOBAL_TIME_STATUS:
     UB_MSG_DATA_ENCODE(UBRawDataGlobalTimeStatus,
                        ub_data_global_time_status_to_raw,
@@ -309,6 +314,11 @@ static int ub_decode_dev_to_user(ub_msg_id_t msg_id, const void *payload,
   case UB_MSG_ANCHOR_POS:
     UB_MSG_DATA_DECODE(UBRawDataAnchorPos, ub_data_anchor_pos_from_raw,
                        UBDataAnchorPos);
+    break;
+  case UB_MSG_ANCHOR_LINK_STATUS:
+    UB_MSG_DATA_DECODE(UBRawDataAnchorLinkStatus,
+                       ub_data_anchor_link_status_from_raw,
+                       UBDataAnchorLinkStatus);
     break;
   case UB_MSG_GLOBAL_TIME_STATUS:
     UB_MSG_DATA_DECODE(UBRawDataGlobalTimeStatus,

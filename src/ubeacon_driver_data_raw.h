@@ -311,6 +311,14 @@ typedef struct {
   int16_t relative_map_z_cm; // map_z_cm = pos_cm[2] + relative_map_z_cm
 } UBRawDataAnchorPos;
 
+typedef struct {
+  ub_local_time_us_t local_time_us;
+  ub_addr_t src;
+  uint8_t reserved;
+  uint8_t wait_sync_count;
+  ub_addr_t wait_syncs[UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX];
+} UBRawDataAnchorLinkStatus;
+
 #pragma pack(pop)
 
 // ---------------- 转换器 ----------------
@@ -948,6 +956,33 @@ static inline void ub_data_anchor_pos_to_raw(const UBDataAnchorPos *data,
   raw->relative_map_z_cm =
       (int16_t)ub_round_i32(data->relative_map_z * 100.0f);
   *size = (int)sizeof(*raw);
+}
+
+static inline void ub_data_anchor_link_status_from_raw(
+    const UBRawDataAnchorLinkStatus *raw, UBDataAnchorLinkStatus *data) {
+  data->local_time_us = raw->local_time_us;
+  data->src = raw->src;
+  data->wait_sync_count = (uint8_t)ub_min_int(
+      raw->wait_sync_count, UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX);
+  for (int i = 0; i < data->wait_sync_count; ++i) {
+    data->wait_syncs[i] = raw->wait_syncs[i];
+  }
+}
+static inline void ub_data_anchor_link_status_to_raw(
+    const UBDataAnchorLinkStatus *data, void *buf, int *size) {
+  UBRawDataAnchorLinkStatus *raw = (UBRawDataAnchorLinkStatus *)buf;
+  memset(raw, 0, sizeof(*raw));
+  raw->local_time_us = data->local_time_us;
+  raw->src = data->src;
+  int count =
+      ub_min_int(data->wait_sync_count, UB_ANCHOR_LINK_STATUS_WAIT_SYNC_MAX);
+  raw->wait_sync_count = (uint8_t)count;
+  for (int i = 0; i < count; ++i) {
+    raw->wait_syncs[i] = data->wait_syncs[i];
+  }
+  // 变长：只发送有效元素
+  *size = (int)offsetof(UBRawDataAnchorLinkStatus, wait_syncs) +
+          count * (int)sizeof(raw->wait_syncs[0]);
 }
 
 #ifdef __cplusplus

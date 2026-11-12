@@ -6,6 +6,7 @@
 #include <std_msgs/msg/empty.hpp>
 #include <ubeacon_driver/msg/anchor2_tag_ddoa.hpp>
 #include <ubeacon_driver/msg/anchor2_tag_signal.hpp>
+#include <ubeacon_driver/msg/anchor_link_status.hpp>
 #include <ubeacon_driver/msg/anchor_pos.hpp>
 #include <ubeacon_driver/msg/attitude.hpp>
 #include <ubeacon_driver/msg/encrypt_param.hpp>
@@ -49,6 +50,7 @@ private:
   void dispatch(const UBDataTag2AnchorPdoa &data);
   void dispatch(const UBDataAnchor2TagDdoa &data);
   void dispatch(const UBDataAnchorPos &data);
+  void dispatch(const UBDataAnchorLinkStatus &data);
   void dispatch(const UBDataGlobalTimeStatus &data);
   void dispatch(const UBDataUserData &data);
   void dispatch(const UBDataImu &data);
@@ -114,6 +116,8 @@ private:
   rclcpp::Publisher<ubeacon_driver::msg::Anchor2TagDdoa>::SharedPtr
       anchor2tag_ddoa_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::AnchorPos>::SharedPtr anchor_pos_pub_;
+  rclcpp::Publisher<ubeacon_driver::msg::AnchorLinkStatus>::SharedPtr
+      anchor_link_status_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::GlobalTimeStatus>::SharedPtr
       global_time_status_pub_;
   rclcpp::Publisher<ubeacon_driver::msg::UserData>::SharedPtr

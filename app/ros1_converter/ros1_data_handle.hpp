@@ -6,6 +6,7 @@
 #include <std_msgs/Empty.h>
 #include <ubeacon_driver/Anchor2TagDdoa.h>
 #include <ubeacon_driver/Anchor2TagSignal.h>
+#include <ubeacon_driver/AnchorLinkStatus.h>
 #include <ubeacon_driver/AnchorPos.h>
 #include <ubeacon_driver/Attitude.h>
 #include <ubeacon_driver/EncryptParam.h>
@@ -49,6 +50,7 @@ private:
   void dispatch(const UBDataTag2AnchorPdoa &data);
   void dispatch(const UBDataAnchor2TagDdoa &data);
   void dispatch(const UBDataAnchorPos &data);
+  void dispatch(const UBDataAnchorLinkStatus &data);
   void dispatch(const UBDataGlobalTimeStatus &data);
   void dispatch(const UBDataUserData &data);
   void dispatch(const UBDataImu &data);
@@ -102,6 +104,7 @@ private:
   ros::Publisher attitude_pub_;
   ros::Publisher anchor2tag_ddoa_pub_;
   ros::Publisher anchor_pos_pub_;
+  ros::Publisher anchor_link_status_pub_;
   ros::Publisher global_time_status_pub_;
   ros::Publisher user_data_from_device_pub_;
   ros::Publisher param_pub_;
